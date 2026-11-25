@@ -1,0 +1,169 @@
+openapi: 3.1.0
+info:
+  title: MediFind Connect Core API
+  description: >
+    Official API specification for MediFind Connect — The collaborative intelligence network for medicine access.
+    Authored and maintained by Person B (Backend Lead) for consumer and pharmacy portal integration by Person A (Frontend Lead).
+  version: 1.0.0
+  contact:
+    name: MediFind Connect Architecture Team (Person B)
+
+servers:
+  - url: http://localhost:5000/api
+    description: Local Development Server
+
+paths:
+  /health:
+    get:
+      summary: Liveness and service health probe
+      description: >
+        Confirms that the Node.js API process is responsive.
+        Never exposes database secrets, connection strings, or system environment variables.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy and responsive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponseEnvelope'
+
+  /readiness:
+    get:
+      summary: Dependency readiness and database connectivity probe
+      description: >
+        Checks downstream database connectivity with Supabase PostgreSQL without blocking API liveness.
+      operationId: getReadiness
+      responses:
+        '200':
+          description: Readiness check completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponseEnvelope'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Supabase Auth issued Bearer JWT token.
+        Required for authenticated pharmacy, inventory, and administrative actions in Phase 3.
+
+  schemas:
+    StandardErrorEnvelope:
+      type: object
+      required:
+        - success
+        - error
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: RESOURCE_NOT_FOUND
+            message:
+              type: string
+              example: The requested endpoint does not exist.
+            details:
+              type: object
+              nullable: true
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-11-25T15:30:00.000Z'
+
+    HealthResponseEnvelope:
+      type: object
+      required:
+        - success
+        - data
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - status
+            - app
+            - version
+            - environment
+            - timestamp
+          properties:
+            status:
+              type: string
+              example: ok
+            app:
+              type: string
+              example: MediFind Connect API
+            version:
+              type: string
+              example: 1.0.0
+            environment:
+              type: string
+              example: development
+            timestamp:
+              type: string
+              format: date-time
+        timestamp:
+          type: string
+          format: date-time
+
+    ReadinessResponseEnvelope:
+      type: object
+      required:
+        - success
+        - data
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - status
+            - database
+            - timestamp
+          properties:
+            status:
+              type: string
+              enum: [ready, degraded]
+              example: ready
+            database:
+              type: object
+              required:
+                - configured
+                - connected
+                - message
+              properties:
+                configured:
+                  type: boolean
+                  example: true
+                connected:
+                  type: boolean
+                  example: true
+                latencyMs:
+                  type: integer
+                  example: 45
+                message:
+                  type: string
+                  example: Supabase PostgreSQL connection verified.
+            timestamp:
+              type: string
+              format: date-time
+        timestamp:
+          type: string
+          format: date-time
