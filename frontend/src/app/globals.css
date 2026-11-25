@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+:root {
+  /* Brand Teal Identity (Preserving MediFind Core Visual Character) */
+  --mf-teal-50: #f0fdfa;
+  --mf-teal-100: #ccfbf1;
+  --mf-teal-200: #99f6e4;
+  --mf-teal-500: #14b8a6;
+  --mf-teal-600: #0d9488;
+  --mf-teal-700: #0f766e;
+  --mf-teal-800: #115e59;
+  --mf-teal-900: #134e4a;
+
+  /* Medical Sky Accent */
+  --mf-medical-50: #f0f9ff;
+  --mf-medical-100: #e0f2fe;
+  --mf-medical-600: #0284c7;
+  --mf-medical-700: #0369a1;
+
+  /* Navy Typography & Neutral Surfaces */
+  --mf-bg-app: #f8fafc;
+  --mf-surface: #ffffff;
+  --mf-surface-muted: #f1f5f9;
+  --mf-border: #e2e8f0;
+  --mf-border-strong: #cbd5e1;
+
+  --mf-navy-900: #0f172a;
+  --mf-navy-800: #1e293b;
+  --mf-navy-600: #475569;
+  --mf-navy-500: #64748b;
+
+  /* Semantic Status Colors */
+  --mf-success-text: #047857;
+  --mf-success-bg: #ecfdf5;
+  --mf-success-border: #a7f3d0;
+
+  --mf-warning-text: #b45309;
+  --mf-warning-bg: #fffbeb;
+  --mf-warning-border: #fde68a;
+
+  --mf-error-text: #be123c;
+  --mf-error-bg: #fff1f2;
+  --mf-error-border: #fecdd3;
+}
+
+@theme inline {
+  --color-brand-50: var(--mf-teal-50);
+  --color-brand-100: var(--mf-teal-100);
+  --color-brand-200: var(--mf-teal-200);
+  --color-brand-500: var(--mf-teal-500);
+  --color-brand-600: var(--mf-teal-600);
+  --color-brand-700: var(--mf-teal-700);
+  --color-brand-800: var(--mf-teal-800);
+  --color-brand-900: var(--mf-teal-900);
+
+  --color-medical-50: var(--mf-medical-50);
+  --color-medical-100: var(--mf-medical-100);
+  --color-medical-600: var(--mf-medical-600);
+  --color-medical-700: var(--mf-medical-700);
+
+  --color-background: var(--mf-bg-app);
+  --color-surface: var(--mf-surface);
+  --color-foreground: var(--mf-navy-900);
+
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --shadow-card: 0 1px 3px 0 rgb(15 23 42 / 0.05), 0 1px 2px -1px rgb(15 23 42 / 0.04);
+  --shadow-elevated: 0 10px 25px -5px rgb(15 23 42 / 0.06), 0 8px 10px -6px rgb(15 23 42 / 0.04);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--mf-bg-app);
+    color: var(--mf-navy-800);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: var(--mf-teal-100);
+    color: var(--mf-teal-900);
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--mf-teal-600);
+    outline-offset: 2px;
+  }
+}
