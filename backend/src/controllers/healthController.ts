@@ -10,6 +10,7 @@ import { ApiResponse, HealthCheckResponse, ReadinessCheckResponse } from '../typ
 export async function getHealth(_req: Request, res: Response): Promise<void> {
   const payload: HealthCheckResponse = {
     status: 'ok',
+    message: 'MediFind Connect API is running',
     app: 'MediFind Connect API',
     version: '1.0.0',
     environment: env.NODE_ENV,
@@ -18,6 +19,7 @@ export async function getHealth(_req: Request, res: Response): Promise<void> {
 
   const response: ApiResponse<HealthCheckResponse> = {
     success: true,
+    message: 'MediFind Connect API is running',
     data: payload,
     timestamp: new Date().toISOString(),
   };

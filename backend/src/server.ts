@@ -2,12 +2,14 @@ import { app } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
 
-const server = app.listen(env.PORT, () => {
+const HOST = '0.0.0.0';
+
+const server = app.listen(env.PORT, HOST, () => {
   logger.info(`MediFind Connect API Service started successfully`, {
     port: env.PORT,
+    host: HOST,
     environment: env.NODE_ENV,
-    url: `http://localhost:${env.PORT}`,
-    healthCheck: `http://localhost:${env.PORT}/api/health`,
+    healthCheck: `/api/health`,
   });
 });
 
