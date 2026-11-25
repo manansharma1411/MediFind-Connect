@@ -1,0 +1,44 @@
+{
+  "name": "medifind-connect-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Backend API Service for MediFind Connect — Collaborative Intelligence Network for Medicine Access",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/**/*.test.ts"
+  },
+  "keywords": [
+    "medifind",
+    "healthcare",
+    "medicine-access",
+    "pharmacy-network",
+    "supabase",
+    "express",
+    "typescript"
+  ],
+  "author": "MediFind Connect Team (Person B)",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
