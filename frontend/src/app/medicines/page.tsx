@@ -1,360 +1,335 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import {
-  MapPin,
-  Building2,
-  SlidersHorizontal,
-  ShieldAlert,
-  ArrowUpDown,
-} from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { SearchInput } from "@/components/ui/SearchInput";
+import { Card, CardContent } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Select";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/Card";
-import { AvailabilityBadge, Badge } from "@/components/ui/Badge";
-import { EmptyState } from "@/components/ui/States";
-import { Modal } from "@/components/ui/Modal";
+  EmptyState,
+  ErrorState,
+  LoadingSkeleton,
+} from "@/components/ui/States";
 import { DemoNoticeBanner } from "@/components/shared/DemoNoticeBanner";
-import { SAMPLE_MEDICINES, type SampleMedicine } from "@/mock-data/medicines";
-import { cn } from "@/lib/cn";
+import { MedicineSearchBox } from "@/features/medicine-finder/MedicineSearchBox";
+import { DidYouMeanBanner } from "@/features/medicine-finder/DidYouMeanBanner";
+import { MedicineResultCard } from "@/features/medicine-finder/MedicineResultCard";
+import { LocationPicker } from "@/features/location/LocationPicker";
+import { searchMedicines } from "@/services/medicineService";
+import type {
+  MedicineSearchResult,
+  UserLocationState,
+} from "@/types/medicine";
+import type { ApiError } from "@/types/api";
 
-const QUICK_SUGGESTIONS = ["Dolo 650", "Paracetamol", "Augmentin", "Pan-D"];
+const FORM_OPTIONS = [
+  { value: "all", label: "All Dosage Forms" },
+  { value: "Tablet", label: "Tablet" },
+  { value: "Capsule", label: "Capsule" },
+  { value: "Syrup", label: "Syrup" },
+  { value: "Injection", label: "Injection" },
+  { value: "Inhaler", label: "Inhaler" },
+  { value: "Drops", label: "Drops" },
+  { value: "Ointment", label: "Ointment" },
+];
 
 export default function MedicinesPage() {
-  const [query, setQuery] = useState("");
-  const [availableOnly, setAvailableOnly] = useState(false);
-  const [openNowOnly, setOpenNowOnly] = useState(false);
-  const [maxDistanceKm, setMaxDistanceKm] = useState<number | null>(null);
-  const [sortBy, setSortBy] = useState("distance");
-  const [selectedMedicine, setSelectedMedicine] =
-    useState<SampleMedicine | null>(null);
+  const [inputValue, setInputValue] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [formFilter, setFormFilter] = useState("all");
+  const [page, setPage] = useState(1);
 
-  const filteredMedicines = useMemo(() => {
-    const q = query.trim().toLowerCase();
+  const [location, setLocation] = useState<UserLocationState>({
+    status: "idle",
+    coords: null,
+    label: "No location selected",
+    source: "none",
+  });
 
-    const list = SAMPLE_MEDICINES.filter((med) => {
-      const matchesQuery =
-        !q ||
-        med.brandName.toLowerCase().includes(q) ||
-        med.genericName.toLowerCase().includes(q) ||
-        med.category.toLowerCase().includes(q);
+  const [result, setResult] = useState<MedicineSearchResult | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-      const matchesAvailable =
-        !availableOnly || med.availability !== "out_of_stock";
+  const searchAbortRef = useRef<AbortController | null>(null);
 
-      const matchesDistance =
-        maxDistanceKm === null || med.nearestDistanceKm <= maxDistanceKm;
+  const runSearch = useCallback(
+    async (q: string, form: string, targetPage: number) => {
+      searchAbortRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
 
-      // Open now filter is represented visually on the UI shell until live store hours API connects
-      const matchesOpen = !openNowOnly || med.samplePharmacyCount > 0;
-
-      return (
-        matchesQuery && matchesAvailable && matchesDistance && matchesOpen
-      );
-    });
-
-    return [...list].sort((a, b) => {
-      if (sortBy === "price") {
-        return a.priceRangeInr.min - b.priceRangeInr.min;
+      try {
+        const data = await searchMedicines(
+          { q, form, page: targetPage, limit: 8 },
+          controller.signal
+        );
+        if (!controller.signal.aborted) {
+          setResult(data);
+          setSuggestions(data.suggestions);
+          setError(null);
+        }
+      } catch (err) {
+        const apiErr = err as Partial<ApiError>;
+        if (apiErr.code === "REQUEST_CANCELLED") return;
+        setError(
+          apiErr.message || "Failed to load medicines. Please try again."
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
       }
-      if (sortBy === "availability") {
-        const rank = { in_stock: 0, low_stock: 1, out_of_stock: 2 };
-        return rank[a.availability] - rank[b.availability];
-      }
-      return a.nearestDistanceKm - b.nearestDistanceKm;
-    });
-  }, [query, availableOnly, openNowOnly, maxDistanceKm, sortBy]);
+    },
+    []
+  );
 
-  const resetFilters = () => {
-    setQuery("");
-    setAvailableOnly(false);
-    setOpenNowOnly(false);
-    setMaxDistanceKm(null);
-    setSortBy("distance");
+  // Initial load and query/filter/page updates (setState only after await)
+  useEffect(() => {
+    const controller = new AbortController();
+    searchAbortRef.current?.abort();
+    searchAbortRef.current = controller;
+
+    (async () => {
+      try {
+        const data = await searchMedicines(
+          { q: submittedQuery, form: formFilter, page, limit: 8 },
+          controller.signal
+        );
+        if (!controller.signal.aborted) {
+          setResult(data);
+          setSuggestions(data.suggestions);
+          setError(null);
+        }
+      } catch (err) {
+        const apiErr = err as Partial<ApiError>;
+        if (apiErr.code === "REQUEST_CANCELLED") return;
+        setError(
+          apiErr.message || "Failed to load medicines. Please try again."
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
+  }, [submittedQuery, formFilter, page]);
+
+  // Debounced suggestion fetcher (300ms)
+  useEffect(() => {
+    const trimmed = inputValue.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setIsSuggesting(true);
+      try {
+        const data = await searchMedicines(
+          { q: trimmed, form: formFilter, page: 1, limit: 5 },
+          controller.signal
+        );
+        if (!controller.signal.aborted) {
+          setSuggestions(data.suggestions);
+        }
+      } catch {
+        // Ignore cancelled suggestion requests
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsSuggesting(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [inputValue, formFilter]);
+
+  const handleInputChange = (val: string) => {
+    setInputValue(val);
+    if (!val.trim()) {
+      setSuggestions([]);
+      setIsSuggesting(false);
+    }
+  };
+
+  const handleSubmit = (q: string) => {
+    setIsLoading(true);
+    setPage(1);
+    setSubmittedQuery(q);
   };
 
   return (
     <PageContainer className="py-8 sm:py-12 space-y-6">
       <PageHeader
-        breadcrumbs={[{ label: "Home", href: "/" }, { label: "Find Medicines" }]}
-        title="Medicine Discovery"
-        description="Search by brand name, generic salt, or therapeutic category and compare local pharmacy availability."
-        badge={<Badge variant="neutral">UI Preview</Badge>}
+        breadcrumbs={[
+          { label: "Home", href: "/" },
+          { label: "Medicine Finder" },
+        ]}
+        title="Patient Medicine Finder"
+        description="Search by generic name, brand name, or partial term, then view verified pharmacy availability and price comparisons."
+        badge={
+          result?.source === "live" ? (
+            <Badge variant="success" dot>
+              Live API
+            </Badge>
+          ) : (
+            <Badge variant="warning" dot>
+              Demo Fallback (Backend Planned)
+            </Badge>
+          )
+        }
       />
 
-      <DemoNoticeBanner
-        title="Sample Layout Data"
-        description="Filters and medicine cards below use isolated sample records to demonstrate the discovery UI. Live pharmacy stock and real-time search will activate once backend endpoints are connected."
-      />
+      {result?.source === "demo" && (
+        <DemoNoticeBanner
+          title="Demo Fallback Active"
+          description="Person B's planned endpoint GET /api/v1/medicines is not yet live in the backend. Showing isolated demo records so you can test search, suggestions, details, and price comparison."
+        />
+      )}
 
-      {/* Search & Suggestions */}
+      <LocationPicker location={location} onChange={setLocation} />
+
+      {/* Search & Dosage Form Filter */}
       <Card>
-        <CardContent className="p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <SearchInput
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onClear={() => setQuery("")}
-              placeholder="Search medicine, brand (e.g. Dolo 650, Augmentin), or generic salt..."
-              aria-label="Search medicines"
-            />
-            <div className="w-full sm:w-52 shrink-0">
+        <CardContent className="p-5 space-y-3">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex-1">
+              <MedicineSearchBox
+                value={inputValue}
+                onChange={handleInputChange}
+                onSubmit={handleSubmit}
+                suggestions={suggestions}
+                isLoading={isSuggesting}
+              />
+            </div>
+            <div className="w-full md:w-52 shrink-0">
               <Select
-                aria-label="Sort results"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                options={[
-                  { value: "distance", label: "Sort: Nearest distance" },
-                  { value: "price", label: "Sort: Lowest price" },
-                  { value: "availability", label: "Sort: Availability" },
-                ]}
+                aria-label="Filter by dosage form"
+                value={formFilter}
+                onChange={(e) => {
+                  setFormFilter(e.target.value);
+                  setPage(1);
+                }}
+                options={FORM_OPTIONS}
               />
             </div>
           </div>
 
-          {/* Search Suggestions Area */}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="font-semibold text-slate-500">
-              Sample suggestions:
-            </span>
-            {QUICK_SUGGESTIONS.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setQuery(item)}
-                className="px-3 py-1 rounded-full bg-slate-100 hover:bg-teal-50 text-slate-700 hover:text-teal-800 border border-slate-200 hover:border-teal-200 font-medium transition-colors cursor-pointer"
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-
-          {/* Filter Controls */}
-          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 mr-1">
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                Filters:
-              </span>
-
-              <button
-                type="button"
-                onClick={() => setAvailableOnly((prev) => !prev)}
-                className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
-                  availableOnly
-                    ? "bg-teal-600 text-white border-teal-600"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                )}
-              >
-                Available now
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setOpenNowOnly((prev) => !prev)}
-                className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
-                  openNowOnly
-                    ? "bg-teal-600 text-white border-teal-600"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                )}
-              >
-                Open now
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setMaxDistanceKm((prev) => (prev === 2 ? null : 2))
-                }
-                className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
-                  maxDistanceKm === 2
-                    ? "bg-teal-600 text-white border-teal-600"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                )}
-              >
-                Within 2 km
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setMaxDistanceKm((prev) => (prev === 5 ? null : 5))
-                }
-                className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
-                  maxDistanceKm === 5
-                    ? "bg-teal-600 text-white border-teal-600"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                )}
-              >
-                Within 5 km
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <ArrowUpDown className="w-3.5 h-3.5" />
+          {result && !isLoading && !error && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 pt-1">
               <span>
-                Showing {filteredMedicines.length} of {SAMPLE_MEDICINES.length}{" "}
-                sample items
+                Found{" "}
+                <strong className="text-slate-800">
+                  {result.pagination.total}
+                </strong>{" "}
+                medicine{result.pagination.total === 1 ? "" : "s"}
+                {submittedQuery.trim()
+                  ? ` for "${submittedQuery.trim()}"`
+                  : ""}
               </span>
+              {submittedQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInputValue("");
+                    setSubmittedQuery("");
+                    setFormFilter("all");
+                    setPage(1);
+                  }}
+                  className="font-semibold text-teal-700 hover:text-teal-800 cursor-pointer"
+                >
+                  Clear search & filters
+                </button>
+              )}
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Results Grid */}
-      {filteredMedicines.length === 0 ? (
+      {/* Did You Mean (only when backend returns a suggestion) */}
+      {result?.didYouMean && (
+        <DidYouMeanBanner
+          originalQuery={submittedQuery}
+          suggestion={result.didYouMean}
+          onSelectSuggestion={(s) => {
+            setInputValue(s);
+            handleSubmit(s);
+          }}
+        />
+      )}
+
+      {/* Results Area */}
+      {isLoading ? (
+        <LoadingSkeleton rows={4} />
+      ) : error ? (
+        <ErrorState
+          title="Unable to complete medicine search"
+          description={error}
+          actionLabel="Retry Search"
+          onAction={() => runSearch(submittedQuery, formFilter, page)}
+        />
+      ) : !result || result.items.length === 0 ? (
         <EmptyState
-          title="No matching sample medicines"
-          description="Try clearing your active filters or searching a different brand or generic salt."
-          actionLabel="Reset Filters"
-          onAction={resetFilters}
+          title="No matching medicines found"
+          description="Try checking your spelling, searching by generic composition (e.g. Paracetamol), or clearing the dosage form filter."
+          actionLabel="Reset Search"
+          onAction={() => {
+            setInputValue("");
+            setSubmittedQuery("");
+            setFormFilter("all");
+            setPage(1);
+          }}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredMedicines.map((med) => (
-            <Card
-              key={med.id}
-              interactive
-              className="flex flex-col justify-between"
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="neutral">{med.category}</Badge>
-                      {med.prescriptionRequired ? (
-                        <Badge variant="info">Rx Required</Badge>
-                      ) : (
-                        <Badge variant="brand">OTC</Badge>
-                      )}
-                    </div>
-                    <CardTitle className="pt-1">{med.brandName}</CardTitle>
-                    <CardDescription>
-                      {med.genericName} • {med.strength} • {med.form}
-                    </CardDescription>
-                  </div>
-                  <AvailabilityBadge status={med.availability} />
-                </div>
-              </CardHeader>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {result.items.map((med) => (
+              <MedicineResultCard key={med.id} medicine={med} />
+            ))}
+          </div>
 
-              <CardContent className="pt-0 space-y-3">
-                <div className="grid grid-cols-3 gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
-                  <div>
-                    <span className="text-slate-500 block">Sample Price</span>
-                    <span className="font-bold text-slate-900 text-sm">
-                      ₹{med.priceRangeInr.min}–₹{med.priceRangeInr.max}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Pharmacies</span>
-                    <span className="font-semibold text-slate-800 inline-flex items-center gap-1 mt-0.5">
-                      <Building2 className="w-3.5 h-3.5 text-teal-600" />
-                      {med.samplePharmacyCount} stores
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Nearest</span>
-                    <span className="font-semibold text-slate-800 inline-flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3.5 h-3.5 text-teal-600" />
-                      {med.nearestDistanceKm} km
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-
-              <CardFooter>
-                <span className="text-xs text-slate-500">
-                  Mfr: {med.manufacturer}
-                </span>
+          {/* Pagination */}
+          {result.pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-xs text-slate-500">
+                Page {result.pagination.page} of {result.pagination.totalPages}
+              </p>
+              <div className="flex items-center gap-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setSelectedMedicine(med)}
+                  disabled={page <= 1}
+                  leftIcon={<ChevronLeft className="w-4 h-4" />}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  View Details
+                  Previous
                 </Button>
-              </CardFooter>
-            </Card>
-          ))}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={page >= result.pagination.totalPages}
+                  rightIcon={<ChevronRight className="w-4 h-4" />}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
-
-      {/* Medicine Details Modal */}
-      <Modal
-        isOpen={Boolean(selectedMedicine)}
-        onClose={() => setSelectedMedicine(null)}
-        title={selectedMedicine?.brandName ?? "Medicine Details"}
-        description={
-          selectedMedicine
-            ? `${selectedMedicine.genericName} (${selectedMedicine.strength})`
-            : undefined
-        }
-        footer={
-          <Button variant="primary" onClick={() => setSelectedMedicine(null)}>
-            Close Preview
-          </Button>
-        }
-      >
-        {selectedMedicine && (
-          <div className="space-y-4 text-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              <AvailabilityBadge status={selectedMedicine.availability} />
-              <Badge variant={selectedMedicine.prescriptionRequired ? "info" : "brand"}>
-                {selectedMedicine.prescriptionRequired
-                  ? "Prescription Required"
-                  : "Over-the-Counter (OTC)"}
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-              <div>
-                <span className="text-slate-500 block">Dosage Form</span>
-                <span className="font-semibold text-slate-900">
-                  {selectedMedicine.form}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500 block">Manufacturer</span>
-                <span className="font-semibold text-slate-900">
-                  {selectedMedicine.manufacturer}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500 block">Sample Price Range</span>
-                <span className="font-bold text-teal-700">
-                  ₹{selectedMedicine.priceRangeInr.min} – ₹
-                  {selectedMedicine.priceRangeInr.max}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500 block">Sample Coverage</span>
-                <span className="font-semibold text-slate-900">
-                  {selectedMedicine.samplePharmacyCount} nearby stores
-                </span>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 flex items-start gap-2.5 text-xs text-amber-950">
-              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <p className="leading-relaxed">{selectedMedicine.dosageNote}</p>
-            </div>
-          </div>
-        )}
-      </Modal>
     </PageContainer>
   );
 }
