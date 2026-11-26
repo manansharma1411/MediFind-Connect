@@ -10,11 +10,30 @@ class ApiClient {
     if (!url) {
       return "";
     }
-    return url.replace(/\/+$/, "");
+    return url.trim().replace(/\/+$/, "");
   }
 
   public isConfigured(): boolean {
     return Boolean(this.baseUrl);
+  }
+
+  /**
+   * Resolves the full request URL while preventing accidental duplicate `/api` prefixes
+   * regardless of whether NEXT_PUBLIC_API_BASE_URL includes `/api` or not.
+   */
+  private resolveUrl(endpoint: string): string {
+    const normalizedEndpoint = endpoint.startsWith("/")
+      ? endpoint
+      : `/${endpoint}`;
+
+    const baseEndsWithApi = /\/api$/i.test(this.baseUrl);
+    const endpointStartsWithApi = /^\/api(\/|$)/i.test(normalizedEndpoint);
+
+    if (baseEndsWithApi && endpointStartsWithApi) {
+      return `${this.baseUrl}${normalizedEndpoint.replace(/^\/api/i, "")}`;
+    }
+
+    return `${this.baseUrl}${normalizedEndpoint}`;
   }
 
   public async request<T>(
@@ -31,10 +50,7 @@ class ApiClient {
       throw error;
     }
 
-    const normalizedEndpoint = endpoint.startsWith("/")
-      ? endpoint
-      : `/${endpoint}`;
-    const url = `${this.baseUrl}${normalizedEndpoint}`;
+    const url = this.resolveUrl(endpoint);
 
     const headers: HeadersInit = {
       "Content-Type": "application/json",
@@ -54,12 +70,16 @@ class ApiClient {
       if (!response.ok) {
         const apiError: ApiError = {
           status: response.status,
-          code: payload?.code || `HTTP_${response.status}`,
+          code:
+            payload?.error?.code ||
+            payload?.code ||
+            `HTTP_${response.status}`,
           message:
+            payload?.error?.message ||
             payload?.message ||
             response.statusText ||
             "An unexpected API error occurred.",
-          details: payload?.details,
+          details: payload?.error?.details ?? payload?.details,
         };
         throw apiError;
       }
