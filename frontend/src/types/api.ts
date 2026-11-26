@@ -12,9 +12,13 @@ export interface ApiError {
   details?: unknown;
 }
 
-export interface HealthCheckResponse {
+export interface HealthCheckData {
   status: "ok" | "degraded" | "unreachable";
+  app?: string;
   service?: string;
   version?: string;
+  environment?: string;
   timestamp?: string;
 }
+
+export type HealthCheckResponse = HealthCheckData;

@@ -1,9 +1,9 @@
 import { apiClient } from "@/services/apiClient";
-import type { HealthCheckResponse } from "@/types/api";
+import type { ApiResponse, HealthCheckResponse } from "@/types/api";
 
 /**
- * Health-check integration stub for Person B's backend service.
- * Endpoint path will be finalized once Person B publishes the API contract.
+ * Health-check integration with Person B's backend (/api/health).
+ * Supports both enveloped ({ success, data: { status } }) and flat responses.
  */
 export async function checkBackendHealth(
   signal?: AbortSignal
@@ -16,7 +16,15 @@ export async function checkBackendHealth(
   }
 
   try {
-    return await apiClient.get<HealthCheckResponse>("/health", { signal });
+    const response = await apiClient.get<
+      ApiResponse<HealthCheckResponse> | HealthCheckResponse
+    >("/api/health", { signal });
+
+    if ("data" in response && response.data) {
+      return response.data;
+    }
+
+    return response as HealthCheckResponse;
   } catch {
     return {
       status: "unreachable",
