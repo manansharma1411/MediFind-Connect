@@ -2,38 +2,83 @@ openapi: 3.1.0
 info:
   title: MediFind Connect Core API
   description: >
-    Official API specification for MediFind Connect — The collaborative intelligence network for medicine access.
-    Authored and maintained by Person B (Backend Lead) for consumer and pharmacy portal integration by Person A (Frontend Lead).
+    Official API contract for MediFind Connect — The collaborative intelligence network for medicine access.
+    Maintained by Person B (Backend Architect) for frontend integration by Person A.
+
+    Status Legend:
+    - [OPERATIONAL]: Implemented and live in production.
+    - [PLANNED]: Proposed contract for upcoming backend phases; NOT yet implemented.
   version: 1.0.0
   contact:
     name: MediFind Connect Architecture Team (Person B)
 
 servers:
-  - url: http://localhost:5000/api
+  - url: https://medifind-connect-vh5s.onrender.com
+    description: Production Render Server
+  - url: http://localhost:5000
     description: Local Development Server
 
+tags:
+  - name: System (Operational)
+    description: Live health and connectivity probes
+  - name: Medicine Discovery (Planned)
+    description: Public search, details, and availability contracts
+  - name: Pharmacy & Auth (Planned)
+    description: Pharmacy authentication, profiles, dashboards, and private inventory
+  - name: Collaboration (Planned)
+    description: Inter-pharmacy B2B stock transfer workflows
+  - name: Intelligence (Planned)
+    description: Privacy-preserving demand, shortage radar, and smart restock
+
 paths:
-  /health:
+  # ============================================================================
+  # OPERATIONAL ENDPOINTS (CONFIRMED LIVE IN BACKEND)
+  # ============================================================================
+  /api/health:
     get:
-      summary: Liveness and service health probe
+      tags:
+        - System (Operational)
+      summary: '[OPERATIONAL] Liveness and service health probe'
       description: >
-        Confirms that the Node.js API process is responsive.
-        Never exposes database secrets, connection strings, or system environment variables.
-      operationId: getHealth
+        Confirms that the Express API process is running cleanly.
+        Verified in backend/src/app.ts and backend/src/routes/health.ts.
+        Never exposes database credentials or secrets.
+      operationId: getApiHealth
       responses:
         '200':
-          description: Service is healthy and responsive
+          description: Service is healthy
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponseEnvelope'
 
-  /readiness:
+  /health:
     get:
-      summary: Dependency readiness and database connectivity probe
+      tags:
+        - System (Operational)
+      summary: '[OPERATIONAL] Liveness probe (root alias)'
       description: >
-        Checks downstream database connectivity with Supabase PostgreSQL without blocking API liveness.
-      operationId: getReadiness
+        Root alias for GET /api/health, mounted at / in backend/src/app.ts
+        for frontend health-badge compatibility.
+      operationId: getRootHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponseEnvelope'
+
+  /api/readiness:
+    get:
+      tags:
+        - System (Operational)
+      summary: '[OPERATIONAL] Database readiness probe'
+      description: >
+        Implemented and tested in backend/src/controllers/healthController.ts.
+        Queries Supabase PostgreSQL (medicines table count) and reports status: "ready"
+        when connected or "degraded" if credentials/tables are missing.
+      operationId: getApiReadiness
       responses:
         '200':
           description: Readiness check completed
@@ -42,32 +87,549 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReadinessResponseEnvelope'
 
+  /readiness:
+    get:
+      tags:
+        - System (Operational)
+      summary: '[OPERATIONAL] Database readiness probe (root alias)'
+      description: Root alias for GET /api/readiness, mounted at / in backend/src/app.ts.
+      operationId: getRootReadiness
+      responses:
+        '200':
+          description: Readiness check completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponseEnvelope'
+
+  # ============================================================================
+  # MEDICINE DISCOVERY (PLANNED)
+  # ============================================================================
+  /api/v1/medicines:
+    get:
+      tags:
+        - Medicine Discovery (Planned)
+      summary: '[PLANNED] Search and list medicines'
+      description: Full-text search across generic names, brand names, and therapeutic classes.
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Search query (e.g., "paracetamol")
+        - name: form
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Paginated list of medicines
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericSuccessEnvelope'
+
+  /api/v1/medicines/{id}:
+    get:
+      tags:
+        - Medicine Discovery (Planned)
+      summary: '[PLANNED] Retrieve medicine details'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Medicine details
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/medicines/{id}/availability:
+    get:
+      tags:
+        - Medicine Discovery (Planned)
+      summary: '[PLANNED] Retrieve nearby pharmacies stocking a medicine'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: lat
+          in: query
+          schema:
+            type: number
+        - name: lng
+          in: query
+          schema:
+            type: number
+        - name: radiusKm
+          in: query
+          schema:
+            type: number
+            default: 10
+      responses:
+        '200':
+          description: Nearby availability sorted by distance
+
+  /api/v1/medicines/{id}/prices:
+    get:
+      tags:
+        - Medicine Discovery (Planned)
+      summary: '[PLANNED] Retrieve medicine price comparisons across pharmacies'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Price comparison list (MRP vs Selling Price in INR)
+
+  # ============================================================================
+  # PHARMACY & AUTH (PLANNED)
+  # ============================================================================
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Pharmacy & Auth (Planned)
+      summary: '[PLANNED] Authenticate pharmacy staff or admin user'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Authenticated session with JWT access token
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/pharmacies/register:
+    post:
+      tags:
+        - Pharmacy & Auth (Planned)
+      summary: '[PLANNED] Register a new licensed pharmacy facility'
+      responses:
+        '201':
+          description: Pharmacy registered and pending verification
+
+  /api/v1/pharmacies:
+    get:
+      tags:
+        - Pharmacy & Auth (Planned)
+      summary: '[PLANNED] Discover active partner pharmacies'
+      parameters:
+        - name: area
+          in: query
+          schema:
+            type: string
+        - name: is24x7
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Paginated pharmacy directory
+
+  /api/v1/pharmacies/{id}:
+    get:
+      tags:
+        - Pharmacy & Auth (Planned)
+      summary: '[PLANNED] Retrieve pharmacy public profile'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Pharmacy details
+
+  /api/v1/pharmacies/{id}/dashboard:
+    get:
+      tags:
+        - Pharmacy & Auth (Planned)
+      summary: '[PLANNED] Retrieve pharmacy operational KPIs and summary'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dashboard summary metrics
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/pharmacies/{id}/inventory:
+    get:
+      tags:
+        - Pharmacy & Auth (Planned)
+      summary: '[PLANNED] Retrieve private inventory for authorized pharmacy'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of private InventoryItem records
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    patch:
+      tags:
+        - Pharmacy & Auth (Planned)
+      summary: '[PLANNED] Update or adjust private inventory stock atomically'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [medicineId, deltaQuantity, reason]
+              properties:
+                medicineId:
+                  type: string
+                  format: uuid
+                deltaQuantity:
+                  type: integer
+                reason:
+                  type: string
+                  enum: [INITIAL_STOCK, SALE, SALE_RETURN, STOCK_AUDIT, EXPIRY_DISPOSAL]
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Stock updated atomically with audit log ID
+        '409':
+          description: Negative stock prevented (INSUFFICIENT_STOCK)
+
+  # ============================================================================
+  # COLLABORATION / STOCK TRANSFERS (PLANNED)
+  # ============================================================================
+  /api/v1/transfers:
+    get:
+      tags:
+        - Collaboration (Planned)
+      summary: '[PLANNED] List incoming and outgoing stock transfers for authorized pharmacy'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: direction
+          in: query
+          schema:
+            type: string
+            enum: [incoming, outgoing, all]
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TransferStatus'
+      responses:
+        '200':
+          description: List of transfer requests
+
+    post:
+      tags:
+        - Collaboration (Planned)
+      summary: '[PLANNED] Create a new inter-pharmacy stock transfer request'
+      security:
+        - BearerAuth: []
+      responses:
+        '201':
+          description: Transfer created in REQUESTED state
+
+  /api/v1/transfers/{id}/approve:
+    patch:
+      tags:
+        - Collaboration (Planned)
+      summary: '[PLANNED] Approve transfer request and atomically reserve stock'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Approved and stock moved to reserved balance
+
+  /api/v1/transfers/{id}/reject:
+    patch:
+      tags:
+        - Collaboration (Planned)
+      summary: '[PLANNED] Reject transfer request'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Marked REJECTED
+
+  /api/v1/transfers/{id}/dispatch:
+    patch:
+      tags:
+        - Collaboration (Planned)
+      summary: '[PLANNED] Mark transfer dispatched and deduct reserved stock from sender'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Marked DISPATCHED
+
+  /api/v1/transfers/{id}/receive:
+    patch:
+      tags:
+        - Collaboration (Planned)
+      summary: '[PLANNED] Confirm receipt and credit stock to requesting pharmacy'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Marked RECEIVED
+
+  /api/v1/transfers/{id}/cancel:
+    patch:
+      tags:
+        - Collaboration (Planned)
+      summary: '[PLANNED] Cancel a transfer according to state-machine authorization rules'
+      description: >
+        Permitted from REQUESTED (requesting_pharmacy or network_admin), APPROVED
+        (requesting_pharmacy, fulfilling_pharmacy, or network_admin — releases reserved stock),
+        or DISPATCHED (fulfilling_pharmacy or network_admin with mandatory audit reason).
+        Rejected for terminal states (REJECTED, RECEIVED, CANCELLED) with 409 CONFLICT.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 5
+      responses:
+        '200':
+          description: Marked CANCELLED
+        '409':
+          description: Invalid state transition (INVALID_STATE_TRANSITION)
+
+  /api/v1/transfers/{id}/history:
+    get:
+      tags:
+        - Collaboration (Planned)
+      summary: '[PLANNED] Retrieve immutable audit trail for a transfer'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Chronological transfer events
+
+  # ============================================================================
+  # DEMAND & AI INTELLIGENCE (PLANNED)
+  # ============================================================================
+  /api/v1/intelligence/demand-summary:
+    get:
+      tags:
+        - Intelligence (Planned)
+      summary: '[PLANNED] Retrieve privacy-preserving regional demand summaries'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: area
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Aggregated area demand metrics (Zero PII)
+
+  /api/v1/intelligence/shortage-radar:
+    get:
+      tags:
+        - Intelligence (Planned)
+      summary: '[PLANNED] Retrieve explainable Shortage Radar risk signals'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: area
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [LOW, MODERATE, ELEVATED, CRITICAL]
+      responses:
+        '200':
+          description: Shortage alerts with evidence and confidence intervals
+
+  /api/v1/intelligence/restock-recommendations:
+    get:
+      tags:
+        - Intelligence (Planned)
+      summary: '[PLANNED] Retrieve Smart Restock reorder recommendations for pharmacy'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: pharmacyId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Reorder recommendations with statistical rationale
+
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: >
-        Supabase Auth issued Bearer JWT token.
-        Required for authenticated pharmacy, inventory, and administrative actions in Phase 3.
+      description: Supabase Auth Bearer JWT token.
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardErrorEnvelope'
+    Forbidden:
+      description: User lacks permission to access this pharmacy resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardErrorEnvelope'
+    NotFound:
+      description: Requested resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardErrorEnvelope'
 
   schemas:
+    TransferStatus:
+      type: string
+      enum: [REQUESTED, APPROVED, REJECTED, DISPATCHED, RECEIVED, CANCELLED]
+
+    GenericSuccessEnvelope:
+      type: object
+      required: [success, data, timestamp]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+
     StandardErrorEnvelope:
       type: object
-      required:
-        - success
-        - error
-        - timestamp
+      required: [success, error, timestamp]
       properties:
         success:
           type: boolean
           example: false
         error:
           type: object
-          required:
-            - code
-            - message
+          required: [code, message]
           properties:
             code:
               type: string
@@ -81,26 +643,25 @@ components:
         timestamp:
           type: string
           format: date-time
-          example: '2026-11-25T15:30:00.000Z'
 
     HealthResponseEnvelope:
       type: object
-      required:
-        - success
-        - data
-        - timestamp
+      required: [success, status, service, message, data, timestamp]
       properties:
         success:
           type: boolean
           example: true
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: backend
+        message:
+          type: string
+          example: MediFind Connect API is running
         data:
           type: object
-          required:
-            - status
-            - app
-            - version
-            - environment
-            - timestamp
           properties:
             status:
               type: string
@@ -113,7 +674,7 @@ components:
               example: 1.0.0
             environment:
               type: string
-              example: development
+              example: production
             timestamp:
               type: string
               format: date-time
@@ -123,47 +684,31 @@ components:
 
     ReadinessResponseEnvelope:
       type: object
-      required:
-        - success
-        - data
-        - timestamp
+      required: [success, status, data, timestamp]
       properties:
         success:
           type: boolean
           example: true
+        status:
+          type: string
+          enum: [ready, degraded]
         data:
           type: object
-          required:
-            - status
-            - database
-            - timestamp
           properties:
             status:
               type: string
               enum: [ready, degraded]
-              example: ready
             database:
               type: object
-              required:
-                - configured
-                - connected
-                - message
               properties:
                 configured:
                   type: boolean
-                  example: true
                 connected:
                   type: boolean
-                  example: true
                 latencyMs:
                   type: integer
-                  example: 45
                 message:
                   type: string
-                  example: Supabase PostgreSQL connection verified.
-            timestamp:
-              type: string
-              format: date-time
         timestamp:
           type: string
           format: date-time
