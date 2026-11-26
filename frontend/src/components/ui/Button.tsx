@@ -82,3 +82,51 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 
 Button.displayName = "Button";
+
+export interface IconButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  label: string;
+}
+
+const iconSizeClasses: Record<ButtonSize, string> = {
+  sm: "h-8 w-8 rounded-lg",
+  md: "h-10 w-10 rounded-xl",
+  lg: "h-11 w-11 rounded-xl",
+};
+
+export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
+  (
+    {
+      className,
+      variant = "ghost",
+      size = "md",
+      label,
+      children,
+      type = "button",
+      ...props
+    },
+    ref
+  ) => {
+    return (
+      <button
+        ref={ref}
+        type={type}
+        aria-label={label}
+        title={label}
+        className={cn(
+          "inline-flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0",
+          variantClasses[variant],
+          iconSizeClasses[size],
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </button>
+    );
+  }
+);
+
+IconButton.displayName = "IconButton";

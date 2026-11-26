@@ -94,3 +94,32 @@ export function EmptyState({
     </div>
   );
 }
+
+export function LoadingSkeleton({
+  rows = 3,
+  className,
+}: {
+  rows?: number;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl bg-white border border-slate-200 p-6 space-y-4",
+        className
+      )}
+      role="status"
+      aria-label="Loading content"
+    >
+      <div className="h-5 w-1/3 rounded-lg bg-slate-200/80 animate-pulse" />
+      <div className="space-y-3">
+        {Array.from({ length: rows }).map((_, idx) => (
+          <div
+            key={idx}
+            className="h-12 w-full rounded-xl bg-slate-100 animate-pulse"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
