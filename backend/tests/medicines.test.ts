@@ -21,9 +21,12 @@ const MED_MISSING = '99999999-9999-4999-8999-999999999999';
 const DEMO_MEDICINES: MedicineRecord[] = [
   {
     id: MED_PARACETAMOL_650,
+    name: 'Paracetamol 650 mg Tablet',
     genericName: 'Paracetamol',
     displayName: 'Paracetamol 650 mg Tablet',
+    primaryBrand: 'Dolo 650',
     therapeuticClass: 'Analgesic & Antipyretic',
+    form: 'Tablet',
     dosageForm: 'Tablet',
     strength: '650 mg',
     packSize: 'Strip of 15 Tablets',
@@ -38,9 +41,12 @@ const DEMO_MEDICINES: MedicineRecord[] = [
   },
   {
     id: MED_AMOXICILLIN_625,
+    name: 'Amoxycillin & Potassium Clavulanate 625 mg',
     genericName: 'Amoxicillin + Clavulanic Acid',
     displayName: 'Amoxycillin & Potassium Clavulanate 625 mg',
+    primaryBrand: 'Augmentin 625 Duo',
     therapeuticClass: 'Antibiotic',
+    form: 'Tablet',
     dosageForm: 'Tablet',
     strength: '625 mg',
     packSize: 'Strip of 10 Tablets',
@@ -244,6 +250,10 @@ test('Search: exact generic name & case-insensitive matching', async () => {
   assert.equal(body.success, true);
   assert.equal(body.data.items.length, 1);
   assert.equal(body.data.items[0].genericName, 'Paracetamol');
+  assert.equal(body.data.items[0].name, 'Paracetamol 650 mg Tablet');
+  assert.equal(body.data.items[0].form, 'Tablet');
+  assert.equal(body.data.items[0].primaryBrand, 'Dolo 650');
+  assert.equal(body.data.didYouMean, null);
   assert.equal(body.data.suggestions.length, 0);
 });
 
@@ -265,6 +275,7 @@ test('Search: typo suggestions separated from empty confirmed items', async () =
   const body = await res.json();
   assert.equal(body.data.items.length, 0);
   assert.equal(body.data.hasExactOrPartialMatch, false);
+  assert.equal(body.data.didYouMean, 'Paracetamol 650 mg Tablet');
   assert.equal(body.data.suggestions.length, 1);
   assert.equal(body.data.suggestions[0].genericName, 'Paracetamol');
   assert.equal(body.data.pagination.total, 0);

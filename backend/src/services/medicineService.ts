@@ -46,6 +46,7 @@ export interface MedicinePriceComparisonDto {
 export interface MedicineSearchResponseDto {
   items: MedicineRecord[];
   suggestions: MedicineRecord[];
+  didYouMean: string | null;
   query: string;
   hasExactOrPartialMatch: boolean;
   pagination: {
@@ -187,6 +188,7 @@ export class MedicineService {
     return {
       items: raw.matches,
       suggestions: raw.suggestions,
+      didYouMean: raw.matches.length === 0 ? (raw.suggestions[0]?.displayName ?? null) : null,
       query: normalizedQuery,
       hasExactOrPartialMatch: raw.matches.length > 0,
       pagination: {

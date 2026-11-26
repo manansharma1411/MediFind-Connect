@@ -9,9 +9,12 @@ export interface MedicineBrandRecord {
 
 export interface MedicineRecord {
   id: string;
+  name: string; // Alias of displayName for frontend compatibility
   genericName: string;
   displayName: string;
+  primaryBrand: string | null;
   therapeuticClass: string | null;
+  form: string; // Alias of dosageForm for frontend compatibility
   dosageForm: string;
   strength: string;
   packSize: string;
@@ -147,17 +150,23 @@ export class SupabaseMedicineRepository implements IMedicineRepository {
 
     for (const r of rows) {
       total = Number(r.total_count ?? rows.length);
+      const brands = brandsByMed.get(String(r.id)) || [];
+      const displayName = String(r.display_name);
+      const dosageForm = String(r.dosage_form);
       const record: MedicineRecord = {
         id: String(r.id),
+        name: displayName,
         genericName: String(r.generic_name),
-        displayName: String(r.display_name),
+        displayName,
+        primaryBrand: brands[0]?.brandName ?? null,
         therapeuticClass: r.therapeutic_class ? String(r.therapeutic_class) : null,
-        dosageForm: String(r.dosage_form),
+        form: dosageForm,
+        dosageForm,
         strength: String(r.strength),
         packSize: String(r.pack_size),
         isPrescriptionRequired: Boolean(r.is_prescription_required),
         storageCondition: String(r.storage_condition),
-        brands: brandsByMed.get(String(r.id)) || [],
+        brands,
         createdAt: String(r.created_at),
         updatedAt: String(r.updated_at),
         matchRank: Number(r.match_rank ?? 1),
@@ -196,21 +205,27 @@ export class SupabaseMedicineRepository implements IMedicineRepository {
     if (!data) return null;
 
     const rawBrands = Array.isArray(data.medicine_brands) ? data.medicine_brands : [];
+    const brands = rawBrands.map((b: Record<string, unknown>) => ({
+      id: String(b.id),
+      brandName: String(b.brand_name),
+      manufacturer: String(b.manufacturer),
+    }));
+    const displayName = String(data.display_name);
+    const dosageForm = String(data.dosage_form);
     return {
       id: String(data.id),
+      name: displayName,
       genericName: String(data.generic_name),
-      displayName: String(data.display_name),
+      displayName,
+      primaryBrand: brands[0]?.brandName ?? null,
       therapeuticClass: data.therapeutic_class ? String(data.therapeutic_class) : null,
-      dosageForm: String(data.dosage_form),
+      form: dosageForm,
+      dosageForm,
       strength: String(data.strength),
       packSize: String(data.pack_size),
       isPrescriptionRequired: Boolean(data.is_prescription_required),
       storageCondition: String(data.storage_condition),
-      brands: rawBrands.map((b: Record<string, unknown>) => ({
-        id: String(b.id),
-        brandName: String(b.brand_name),
-        manufacturer: String(b.manufacturer),
-      })),
+      brands,
       createdAt: String(data.created_at),
       updatedAt: String(data.updated_at),
     };
