@@ -1,5 +1,10 @@
 import type { ApiError } from "@/types/api";
 
+export interface ApiRequestOptions extends RequestInit {
+  /** Timeout in milliseconds (default 15000ms to accommodate Render cold starts) */
+  timeoutMs?: number;
+}
+
 /**
  * Centralized API Client for MediFind Connect.
  * Base URL is driven strictly by NEXT_PUBLIC_API_BASE_URL.
@@ -38,8 +43,19 @@ class ApiClient {
 
   public async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: ApiRequestOptions = {}
   ): Promise<T> {
+    const { timeoutMs = 15000, signal: externalSignal, ...fetchOptions } = options;
+
+    if (externalSignal?.aborted) {
+      const abortError: ApiError = {
+        status: 0,
+        code: "REQUEST_CANCELLED",
+        message: "Request was cancelled.",
+      };
+      throw abortError;
+    }
+
     if (!this.baseUrl) {
       const error: ApiError = {
         status: 0,
@@ -54,13 +70,36 @@ class ApiClient {
 
     const headers: HeadersInit = {
       "Content-Type": "application/json",
-      ...options.headers,
+      ...fetchOptions.headers,
     };
+
+    const controller = new AbortController();
+    let didTimeout = false;
+
+    const timeoutId = setTimeout(() => {
+      didTimeout = true;
+      controller.abort();
+    }, timeoutMs);
+
+    const onExternalAbort = () => controller.abort();
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        clearTimeout(timeoutId);
+        const abortError: ApiError = {
+          status: 0,
+          code: "REQUEST_CANCELLED",
+          message: "Request was cancelled.",
+        };
+        throw abortError;
+      }
+      externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+    }
 
     try {
       const response = await fetch(url, {
-        ...options,
+        ...fetchOptions,
         headers,
+        signal: controller.signal,
       });
 
       const contentType = response.headers.get("content-type");
@@ -95,6 +134,17 @@ class ApiClient {
         throw err;
       }
 
+      if (err instanceof Error && err.name === "AbortError") {
+        const abortErr: ApiError = {
+          status: 0,
+          code: didTimeout ? "TIMEOUT_ERROR" : "REQUEST_CANCELLED",
+          message: didTimeout
+            ? `Request timed out after ${Math.round(timeoutMs / 1000)} seconds.`
+            : "Request was cancelled.",
+        };
+        throw abortErr;
+      }
+
       const networkError: ApiError = {
         status: 0,
         code: "NETWORK_ERROR",
@@ -104,17 +154,22 @@ class ApiClient {
             : "Unable to reach the MediFind Connect backend service.",
       };
       throw networkError;
+    } finally {
+      clearTimeout(timeoutId);
+      if (externalSignal) {
+        externalSignal.removeEventListener("abort", onExternalAbort);
+      }
     }
   }
 
-  public get<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  public get<T>(endpoint: string, options?: ApiRequestOptions): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: "GET" });
   }
 
   public post<T>(
     endpoint: string,
     body?: unknown,
-    options?: RequestInit
+    options?: ApiRequestOptions
   ): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
@@ -126,7 +181,7 @@ class ApiClient {
   public put<T>(
     endpoint: string,
     body?: unknown,
-    options?: RequestInit
+    options?: ApiRequestOptions
   ): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
@@ -138,7 +193,7 @@ class ApiClient {
   public patch<T>(
     endpoint: string,
     body?: unknown,
-    options?: RequestInit
+    options?: ApiRequestOptions
   ): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
@@ -147,7 +202,7 @@ class ApiClient {
     });
   }
 
-  public delete<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  public delete<T>(endpoint: string, options?: ApiRequestOptions): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: "DELETE" });
   }
 }
