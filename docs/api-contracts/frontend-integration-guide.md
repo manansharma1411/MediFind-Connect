@@ -87,15 +87,18 @@ List endpoints accept `?page=1&limit=20` (max `limit=100`) and return:
 
 ## 4. Endpoints Available NOW vs. Planned for Later
 
-### Available NOW (Operational & Live)
+### Available NOW (Operational & Implemented)
 * `GET /api/health` (and `GET /health`) — Liveness check returning `status: "ok"`.
 * `GET /api/readiness` (and `GET /readiness`) — Supabase PostgreSQL connectivity probe.
+* `GET /api/v1/medicines` — Ranked medicine search (`q`, `form`, `page`, `limit`) with separate `items` and `suggestions`.
+* `GET /api/v1/medicines/:id` — Public medicine details and brands.
+* `GET /api/v1/medicines/:id/availability` — Geo-sorted availability (`lat`, `lng`, `radiusKm`) excluding expired stock and private fields.
+* `GET /api/v1/medicines/:id/prices` — INR price comparisons across compatible formulations (`sortBy=price_asc|distance_asc`).
 
 ### Planned for Upcoming Phases (NOT YET IMPLEMENTED)
 Do **not** call these in production UI without fallback/mocking until Person B marks them operational:
-* **Medicine Discovery:** `GET /api/v1/medicines`, `GET /api/v1/medicines/:id`, `GET /api/v1/medicines/:id/availability`, `GET /api/v1/medicines/:id/prices`
-* **Pharmacy & Auth:** `POST /api/v1/auth/login`, `POST /api/v1/pharmacies/register`, `GET /api/v1/pharmacies`, `GET /api/v1/pharmacies/:id`, `GET /api/v1/pharmacies/:id/dashboard`, `GET/PATCH /api/v1/pharmacies/:id/inventory`
-* **Collaboration:** `GET/POST /api/v1/transfers`, `PATCH /api/v1/transfers/:id/{approve|reject|dispatch|receive}`, `GET /api/v1/transfers/:id/history`
+* **Pharmacy & Auth:** `POST /api/v1/auth/login`, `POST /api/v1/pharmacies/register`, `GET /api/v1/pharmacies`, `GET /api/v1/pharmacies/:id`, `GET /api/v1/pharmacies/:id/dashboard`, `GET/PATCH /api/v1/pharmacies/:id/inventory` (currently guarded with 401/403)
+* **Collaboration:** `GET/POST /api/v1/transfers`, `PATCH /api/v1/transfers/:id/{approve|reject|dispatch|receive|cancel}`, `GET /api/v1/transfers/:id/history`
 * **Intelligence:** `GET /api/v1/intelligence/{demand-summary|shortage-radar|restock-recommendations}`
 
 ---
