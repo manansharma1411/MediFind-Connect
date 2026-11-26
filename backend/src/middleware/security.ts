@@ -4,24 +4,51 @@ import { RequestHandler } from 'express';
 import { env } from '../config/env.js';
 
 /**
- * Parses allowed CORS origins from comma-separated environment variable
+ * Normalizes an origin string by trimming whitespace and trailing slashes.
  */
-const allowedOrigins = env.FRONTEND_ORIGIN.split(',').map((o) => o.trim());
+function normalizeOrigin(url: string): string {
+  return url.trim().replace(/\/+$/, '');
+}
+
+/**
+ * Parses allowed CORS origins from comma-separated environment variable.
+ * Includes local development defaults alongside production origins.
+ */
+export const allowedOrigins: string[] = env.FRONTEND_ORIGIN
+  .split(',')
+  .map(normalizeOrigin)
+  .filter((origin) => origin.length > 0);
 
 const corsOptions: CorsOptions = {
-  origin: (origin, callback) => {
-    // Allow non-browser requests (e.g. server-to-server or curl) in development
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
-      callback(null, true);
-    } else {
-      callback(new Error(`Origin ${origin} not permitted by CORS policy`));
+  origin: (requestOrigin, callback) => {
+    // Allow server-to-server, curl, or mobile app requests without Origin header
+    if (!requestOrigin) {
+      return callback(null, true);
     }
+
+    const cleanOrigin = normalizeOrigin(requestOrigin);
+
+    // In production, reject any wildcards when credentials mode is enabled
+    if (allowedOrigins.includes(cleanOrigin)) {
+      return callback(null, true);
+    }
+
+    // In development mode, allow localhost origins by default if not explicitly listed
+    if (env.NODE_ENV === 'development') {
+      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin);
+      if (isLocalhost) {
+        return callback(null, true);
+      }
+    }
+
+    // Reject unauthorized origin without throwing 500 error on preflight
+    return callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Total-Count'],
+  maxAge: 86400, // Cache preflight requests for 24 hours
 };
 
 export const securityHeaders: RequestHandler = helmet({
