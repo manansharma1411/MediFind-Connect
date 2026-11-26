@@ -21,8 +21,8 @@ servers:
 tags:
   - name: System (Operational)
     description: Live health and connectivity probes
-  - name: Medicine Discovery (Planned)
-    description: Public search, details, and availability contracts
+  - name: Medicine Discovery (Operational)
+    description: Public search, details, availability, and price comparison endpoints
   - name: Pharmacy & Auth (Planned)
     description: Pharmacy authentication, profiles, dashboards, and private inventory
   - name: Collaboration (Planned)
@@ -103,14 +103,14 @@ paths:
                 $ref: '#/components/schemas/ReadinessResponseEnvelope'
 
   # ============================================================================
-  # MEDICINE DISCOVERY (PLANNED)
+  # MEDICINE DISCOVERY (OPERATIONAL)
   # ============================================================================
   /api/v1/medicines:
     get:
       tags:
-        - Medicine Discovery (Planned)
-      summary: '[PLANNED] Search and list medicines'
-      description: Full-text search across generic names, brand names, and therapeutic classes.
+        - Medicine Discovery (Operational)
+      summary: '[OPERATIONAL] Search and list medicines'
+      description: Ranked search across generic names, brand names, prefix/partial matches, and trigram typo suggestions.
       parameters:
         - name: q
           in: query
@@ -143,8 +143,8 @@ paths:
   /api/v1/medicines/{id}:
     get:
       tags:
-        - Medicine Discovery (Planned)
-      summary: '[PLANNED] Retrieve medicine details'
+        - Medicine Discovery (Operational)
+      summary: '[OPERATIONAL] Retrieve medicine details'
       parameters:
         - name: id
           in: path
@@ -161,8 +161,8 @@ paths:
   /api/v1/medicines/{id}/availability:
     get:
       tags:
-        - Medicine Discovery (Planned)
-      summary: '[PLANNED] Retrieve nearby pharmacies stocking a medicine'
+        - Medicine Discovery (Operational)
+      summary: '[OPERATIONAL] Retrieve nearby pharmacies stocking a medicine'
       parameters:
         - name: id
           in: path
@@ -190,8 +190,8 @@ paths:
   /api/v1/medicines/{id}/prices:
     get:
       tags:
-        - Medicine Discovery (Planned)
-      summary: '[PLANNED] Retrieve medicine price comparisons across pharmacies'
+        - Medicine Discovery (Operational)
+      summary: '[OPERATIONAL] Retrieve medicine price comparisons across pharmacies'
       parameters:
         - name: id
           in: path
