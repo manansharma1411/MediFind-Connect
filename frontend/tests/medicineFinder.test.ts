@@ -64,10 +64,12 @@ test("getMedicineById, availability, and prices return canonical structures with
   assert.equal(medicine.strength, "650 mg");
   assert.equal(medicine.packSize, "Strip of 15 Tablets");
 
-  const { items: avail } = await getMedicineAvailability("demo-med-1", {
-    lat: 23.2323,
-    lng: 77.4332,
-  });
+  const { medicine: availMed, pharmacies: avail } =
+    await getMedicineAvailability("demo-med-1", {
+      lat: 23.2323,
+      lng: 77.4332,
+    });
+  assert.ok(availMed);
   assert.ok(avail.length >= 2);
   for (const item of avail) {
     assert.equal("batchNumber" in item, false);
@@ -77,7 +79,10 @@ test("getMedicineById, availability, and prices return canonical structures with
     assert.equal(typeof item.distanceKm, "number");
   }
 
-  const { items: prices } = await getMedicinePrices("demo-med-1");
+  const { medicine: priceMed, comparisons: prices } = await getMedicinePrices(
+    "demo-med-1"
+  );
+  assert.ok(priceMed);
   assert.equal(prices.length, avail.length);
 });
 
@@ -259,6 +264,115 @@ test("apiClient handles aborted/cancelled requests and 500 error responses clean
       () => apiClient.get("/api/v1/medicines"),
       (err: { status?: number; code?: string }) =>
         err.status === 500 && err.code === "INTERNAL_SERVER_ERROR"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (prevBase === undefined) {
+      delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    } else {
+      process.env.NEXT_PUBLIC_API_BASE_URL = prevBase;
+    }
+  }
+});
+
+test("openNow filter respects explicit isOpenNow: false even when is24x7 is true", () => {
+  const sample: MedicineAvailability[] = [
+    {
+      pharmacyId: "p-explicit-closed",
+      pharmacyName: "Temporarily Closed 24x7",
+      area: "A",
+      distanceKm: 1.0,
+      is24x7: true,
+      isOpenNow: false,
+      status: "IN_STOCK",
+      sellingPrice: 30,
+      mrp: 35,
+      isApproximateStockHigh: true,
+      lastUpdatedAt: new Date().toISOString(),
+    },
+    {
+      pharmacyId: "p-fallback-24x7",
+      pharmacyName: "24x7 Without Explicit Flag",
+      area: "B",
+      distanceKm: 2.0,
+      is24x7: true,
+      isOpenNow: null,
+      status: "IN_STOCK",
+      sellingPrice: 32,
+      mrp: 35,
+      isApproximateStockHigh: true,
+      lastUpdatedAt: new Date().toISOString(),
+    },
+  ];
+
+  const openOnly = filterAndSortAvailability(sample, {
+    availableNow: false,
+    openNow: true,
+    maxDistanceKm: null,
+    sortBy: "distance",
+  });
+  assert.deepEqual(
+    openOnly.map((i) => i.pharmacyId),
+    ["p-fallback-24x7"]
+  );
+});
+
+test("getMedicineAvailability and getMedicinePrices extract pharmacies/comparisons and pass lat/lng", async () => {
+  const originalFetch = globalThis.fetch;
+  const prevBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+  process.env.NEXT_PUBLIC_API_BASE_URL = "https://example.test";
+  const requestedUrls: string[] = [];
+
+  globalThis.fetch = async (input: string | URL | Request) => {
+    const url = typeof input === "string" ? input : input.toString();
+    requestedUrls.push(url);
+    if (url.includes("/availability")) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            medicine: { id: "med-1", name: "Test Med" },
+            pharmacies: [{ pharmacyId: "ph-1", pharmacyName: "Store 1" }],
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          medicine: { id: "med-1", name: "Test Med" },
+          comparisons: [{ pharmacyId: "ph-1", sellingPrice: 25 }],
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    const avail = await getMedicineAvailability("med-1", {
+      lat: 23.25,
+      lng: 77.41,
+    });
+    assert.equal(avail.source, "live");
+    assert.equal(avail.medicine?.id, "med-1");
+    assert.equal(avail.pharmacies.length, 1);
+    assert.equal(avail.pharmacies[0]?.pharmacyId, "ph-1");
+
+    const prices = await getMedicinePrices("med-1", {
+      lat: 23.25,
+      lng: 77.41,
+    });
+    assert.equal(prices.source, "live");
+    assert.equal(prices.medicine?.id, "med-1");
+    assert.equal(prices.comparisons.length, 1);
+    assert.equal(prices.comparisons[0]?.sellingPrice, 25);
+
+    assert.ok(
+      requestedUrls.some(
+        (u) => u.includes("/prices") && u.includes("lat=23.25") && u.includes("lng=77.41")
+      )
     );
   } finally {
     globalThis.fetch = originalFetch;

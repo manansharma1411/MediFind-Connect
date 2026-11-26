@@ -126,12 +126,26 @@ export async function getMedicineById(
   }
 }
 
+export interface MedicineAvailabilityPayload {
+  medicine?: Medicine | null;
+  pharmacies: MedicineAvailability[];
+}
+
+export interface MedicinePricesPayload {
+  medicine?: Medicine | null;
+  comparisons: MedicineAvailability[];
+}
+
 export async function getMedicineAvailability(
   id: string,
   coords?: { lat: number; lng: number } | null,
   radiusKm = 10,
   signal?: AbortSignal
-): Promise<{ items: MedicineAvailability[]; source: "live" | "demo" }> {
+): Promise<{
+  medicine: Medicine | null;
+  pharmacies: MedicineAvailability[];
+  source: "live" | "demo";
+}> {
   const qs = new URLSearchParams();
   if (coords) {
     qs.set("lat", String(coords.lat));
@@ -141,17 +155,23 @@ export async function getMedicineAvailability(
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
 
   try {
-    const res = await apiClient.get<ApiResponse<MedicineAvailability[]>>(
+    const res = await apiClient.get<ApiResponse<MedicineAvailabilityPayload>>(
       `/api/v1/medicines/${encodeURIComponent(id)}/availability${suffix}`,
       { signal }
     );
-    return { items: res.data, source: "live" };
+    return {
+      medicine: res.data.medicine ?? null,
+      pharmacies: res.data.pharmacies,
+      source: "live",
+    };
   } catch (err) {
     if (isCancelledError(err) || !isPlannedEndpointUnavailable(err)) {
       throw err;
     }
+    const found = DEMO_MEDICINES.find((m) => m.id === id) ?? null;
     return {
-      items: getDemoAvailabilityForMedicine(id, coords),
+      medicine: found,
+      pharmacies: getDemoAvailabilityForMedicine(id, coords),
       source: "demo",
     };
   }
@@ -161,19 +181,36 @@ export async function getMedicinePrices(
   id: string,
   coords?: { lat: number; lng: number } | null,
   signal?: AbortSignal
-): Promise<{ items: MedicineAvailability[]; source: "live" | "demo" }> {
+): Promise<{
+  medicine: Medicine | null;
+  comparisons: MedicineAvailability[];
+  source: "live" | "demo";
+}> {
+  const qs = new URLSearchParams();
+  if (coords) {
+    qs.set("lat", String(coords.lat));
+    qs.set("lng", String(coords.lng));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+
   try {
-    const res = await apiClient.get<ApiResponse<MedicineAvailability[]>>(
-      `/api/v1/medicines/${encodeURIComponent(id)}/prices`,
+    const res = await apiClient.get<ApiResponse<MedicinePricesPayload>>(
+      `/api/v1/medicines/${encodeURIComponent(id)}/prices${suffix}`,
       { signal }
     );
-    return { items: res.data, source: "live" };
+    return {
+      medicine: res.data.medicine ?? null,
+      comparisons: res.data.comparisons,
+      source: "live",
+    };
   } catch (err) {
     if (isCancelledError(err) || !isPlannedEndpointUnavailable(err)) {
       throw err;
     }
+    const found = DEMO_MEDICINES.find((m) => m.id === id) ?? null;
     return {
-      items: getDemoAvailabilityForMedicine(id, coords),
+      medicine: found,
+      comparisons: getDemoAvailabilityForMedicine(id, coords),
       source: "demo",
     };
   }
