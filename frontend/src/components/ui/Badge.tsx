@@ -58,3 +58,65 @@ export function Badge({
     </span>
   );
 }
+
+export type AvailabilityStatus = "in_stock" | "low_stock" | "out_of_stock";
+
+const availabilityConfig: Record<
+  AvailabilityStatus,
+  { label: string; variant: BadgeVariant }
+> = {
+  in_stock: { label: "In Stock", variant: "success" },
+  low_stock: { label: "Low Stock", variant: "warning" },
+  out_of_stock: { label: "Out of Stock", variant: "error" },
+};
+
+export function AvailabilityBadge({
+  status,
+  quantity,
+  className,
+}: {
+  status: AvailabilityStatus;
+  quantity?: number;
+  className?: string;
+}) {
+  const cfg = availabilityConfig[status];
+  return (
+    <Badge variant={cfg.variant} dot className={className}>
+      {cfg.label}
+      {typeof quantity === "number" ? ` (${quantity})` : ""}
+    </Badge>
+  );
+}
+
+export type TransferStatus =
+  | "requested"
+  | "approved"
+  | "rejected"
+  | "dispatched"
+  | "received";
+
+const transferStatusConfig: Record<
+  TransferStatus,
+  { label: string; variant: BadgeVariant }
+> = {
+  requested: { label: "Requested", variant: "info" },
+  approved: { label: "Approved", variant: "brand" },
+  rejected: { label: "Rejected", variant: "error" },
+  dispatched: { label: "Dispatched", variant: "warning" },
+  received: { label: "Received", variant: "success" },
+};
+
+export function StatusBadge({
+  status,
+  className,
+}: {
+  status: TransferStatus;
+  className?: string;
+}) {
+  const cfg = transferStatusConfig[status];
+  return (
+    <Badge variant={cfg.variant} dot className={className}>
+      {cfg.label}
+    </Badge>
+  );
+}

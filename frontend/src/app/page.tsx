@@ -4,11 +4,13 @@ import {
   Search,
   Building2,
   GitCompareArrows,
-  Activity,
-  ArrowRight,
-  ShieldCheck,
   Radar,
-  PackageCheck,
+  ShieldCheck,
+  ArrowRight,
+  CheckCircle2,
+  MapPin,
+  Lock,
+  Activity,
 } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import {
@@ -18,155 +20,317 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
+import { AvailabilityBadge, Badge } from "@/components/ui/Badge";
 import { BackendHealthBadge } from "@/components/shared/BackendHealthBadge";
 
-const domainModules = [
+const workflowSteps = [
   {
+    step: "01",
     title: "Patient Medicine Discovery",
     description:
-      "Locate verified local stock, compare pharmacy pricing, and view real-time availability indicators.",
-    href: "/medicines",
-    cta: "Open Medicine Shell",
+      "Search by brand or generic composition, compare local availability, and locate nearby pharmacies.",
     icon: <Search className="w-5 h-5 text-teal-600" />,
-    badge: "Patient Domain",
   },
   {
-    title: "Partner Pharmacy Directory",
+    step: "02",
+    title: "Pharmacy Inventory & Transfers",
     description:
-      "Browse neighborhood pharmacies, operating schedules, and verified store profiles.",
-    href: "/pharmacies",
-    cta: "Open Pharmacy Shell",
-    icon: <Building2 className="w-5 h-5 text-teal-600" />,
-    badge: "Patient Domain",
-  },
-  {
-    title: "Pharmacy Operations Console",
-    description:
-      "Manage store inventory, batch thresholds, low-stock alerts, and patient pickup holds.",
-    href: "/pharmacy/dashboard",
-    cta: "Open Console Shell",
-    icon: <PackageCheck className="w-5 h-5 text-teal-600" />,
-    badge: "Pharmacy Portal",
-  },
-  {
-    title: "Inter-Pharmacy Collaboration",
-    description:
-      "Coordinate peer-to-peer stock transfers, runner dispatches, and verified handoffs.",
-    href: "/collaboration",
-    cta: "Open Collaboration Shell",
+      "Community pharmacies maintain structured stock records and coordinate peer-to-peer transfers to resolve stockouts.",
     icon: <GitCompareArrows className="w-5 h-5 text-teal-600" />,
-    badge: "B2B Network",
   },
   {
-    title: "Regional Shortage Radar",
+    step: "03",
+    title: "Shortage & Restock Intelligence",
     description:
-      "Monitor emerging neighborhood stockouts and unfulfilled demand spikes.",
-    href: "/intelligence/shortage-radar",
-    cta: "Open Radar Shell",
+      "Verified network signals highlight emerging regional shortages and support timely replenishment planning.",
     icon: <Radar className="w-5 h-5 text-sky-600" />,
-    badge: "Intelligence",
+  },
+];
+
+const platformPillars = [
+  {
+    title: "For Patients & Caregivers",
+    subtitle: "Clarity before you travel",
+    description:
+      "Eliminate guesswork when searching for essential prescriptions. View generic equivalents, store hours, distance, and availability status in one place.",
+    points: [
+      "Search by brand name, generic salt, or category",
+      "Filter by availability, open hours, and distance",
+      "Clear OTC vs. prescription-required indicators",
+    ],
+    href: "/medicines",
+    cta: "Search Medicines",
+    icon: <Search className="w-5 h-5 text-teal-600" />,
   },
   {
-    title: "Smart Restock Planner",
+    title: "For Community Pharmacies",
+    subtitle: "Connected operations & B2B sharing",
     description:
-      "Review data-driven replenishment insights and supply-demand matching.",
-    href: "/intelligence/smart-restock",
-    cta: "Open Restock Shell",
+      "Turn isolated store inventories into a resilient neighborhood network. Track low-stock items and fulfill urgent patient demand through verified inter-pharmacy transfers.",
+    points: [
+      "Centralized SKU, batch, and stock status tracking",
+      "Structured transfer requests with step-by-step audit trail",
+      "Dedicated operational console and onboarding",
+    ],
+    href: "/pharmacy/dashboard",
+    cta: "Open Pharmacy Portal",
+    icon: <Building2 className="w-5 h-5 text-teal-600" />,
+  },
+  {
+    title: "Demand & Shortage Insights",
+    subtitle: "Evidence-backed supply visibility",
+    description:
+      "Understand where medicine access gaps are forming. Intelligence views surface regional shortage signals and restock guidance only when backed by verified data.",
+    points: [
+      "Transparent shortage severity and evidence summaries",
+      "Smart restock suggestions with lead-time context",
+      "Honest uncertainty and empty states when data is sparse",
+    ],
+    href: "/intelligence",
+    cta: "Explore Intelligence",
     icon: <Activity className="w-5 h-5 text-sky-600" />,
-    badge: "Intelligence",
   },
 ];
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col pb-16">
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-b from-teal-50/80 via-slate-50 to-slate-50 border-b border-slate-200/80 py-14 sm:py-20">
+    <div className="flex flex-col">
+      {/* 1. Hero Section */}
+      <section className="bg-gradient-to-b from-teal-50/80 via-slate-50 to-slate-50 border-b border-slate-200/80 py-14 sm:py-20">
         <PageContainer>
-          <div className="max-w-3xl mx-auto text-center space-y-5">
-            <div className="flex flex-wrap items-center justify-center gap-2.5">
-              <Badge variant="brand" dot>
-                Phase 2 Frontend Foundation
-              </Badge>
-              <BackendHealthBadge />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+            <div className="lg:col-span-7 space-y-6">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Badge variant="brand" dot>
+                  MediFind Connect Platform
+                </Badge>
+                <BackendHealthBadge />
+              </div>
+
+              <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.12]">
+                The collaborative intelligence network for{" "}
+                <span className="text-teal-600">medicine access</span>.
+              </h1>
+
+              <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl">
+                MediFind Connect brings patients, community pharmacies, and
+                supply intelligence together—making it easier to locate
+                essential medicines nearby and coordinate stock across local
+                pharmacy networks.
+              </p>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Link
+                  href="/medicines"
+                  className="inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-teal-600 text-white font-semibold text-sm hover:bg-teal-700 transition-colors shadow-sm"
+                >
+                  <Search className="w-4 h-4" />
+                  <span>Find Medicines Nearby</span>
+                </Link>
+                <Link
+                  href="/pharmacy/register"
+                  className="inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-white text-slate-800 border border-slate-200 font-semibold text-sm hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-xs"
+                >
+                  <Building2 className="w-4 h-4 text-teal-600" />
+                  <span>Partner as a Pharmacy</span>
+                </Link>
+              </div>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.12]">
-              The collaborative intelligence network for{" "}
-              <span className="text-teal-600">medicine access</span>.
-            </h1>
+            {/* Composed Interface Preview (Clearly Labeled) */}
+            <div className="lg:col-span-5">
+              <Card elevated className="overflow-hidden border-slate-200/90">
+                <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-slate-200">
+                    Interface Preview • Availability Card
+                  </span>
+                  <Badge variant="neutral" className="bg-slate-800 text-teal-300 border-slate-700">
+                    Sample Layout
+                  </Badge>
+                </div>
+                <CardContent className="p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold text-teal-700 uppercase tracking-wide">
+                        Analgesic • OTC
+                      </p>
+                      <h2 className="text-lg font-bold text-slate-900 mt-0.5">
+                        Paracetamol 650 mg
+                      </h2>
+                      <p className="text-xs text-slate-500">
+                        Generic composition • Tablet strip
+                      </p>
+                    </div>
+                    <AvailabilityBadge status="in_stock" />
+                  </div>
 
-            <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
-              MediFind Connect links patients, community pharmacies, and
-              regional supply intelligence into one unified clinical platform.
-            </p>
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-teal-600" />
+                        Nearby Partner Pharmacy
+                      </span>
+                      <span className="text-slate-500">Distance preview</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-slate-600">
+                      <span>Status indicators adapt to live stock</span>
+                      <span className="font-bold text-teal-700">
+                        Transparent pricing
+                      </span>
+                    </div>
+                  </div>
 
-            {/* Foundation Quick Links */}
-            <div className="pt-3 flex flex-wrap items-center justify-center gap-3">
-              <Link
-                href="/medicines"
-                className="inline-flex items-center gap-2 h-11 px-6 rounded-xl bg-teal-600 text-white font-semibold text-sm hover:bg-teal-700 transition-colors shadow-sm"
-              >
-                <Search className="w-4 h-4" />
-                <span>Explore Medicines Shell</span>
-              </Link>
-              <Link
-                href="/pharmacy/register"
-                className="inline-flex items-center gap-2 h-11 px-6 rounded-xl bg-white text-slate-800 border border-slate-200 font-semibold text-sm hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-xs"
-              >
-                <ShieldCheck className="w-4 h-4 text-teal-600" />
-                <span>Pharmacy Onboarding</span>
-              </Link>
+                  <div className="flex items-center justify-between pt-1 text-xs text-slate-500">
+                    <span>Connected to pharmacy inventory</span>
+                    <Link
+                      href="/medicines"
+                      className="font-semibold text-teal-700 hover:text-teal-800 inline-flex items-center gap-1"
+                    >
+                      <span>Try Discovery UI</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </PageContainer>
       </section>
 
-      {/* Architecture & Route Shells Grid */}
-      <section className="pt-12 sm:pt-16">
-        <PageContainer className="space-y-8">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div className="space-y-1">
-              <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-                Application Architecture Shells
-              </h2>
-              <p className="text-sm text-slate-600">
-                Verified routing foundation for all MediFind Connect domains.
-                Feature logic will connect in upcoming phases.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="success" dot>
-                Design System Active
-              </Badge>
-            </div>
+      {/* 2. How the Platform Works */}
+      <section id="how-it-works" className="py-14 sm:py-16 bg-white border-b border-slate-200/80">
+        <PageContainer className="space-y-10">
+          <div className="max-w-2xl space-y-2">
+            <Badge variant="brand">How It Works</Badge>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              Three connected layers for reliable medicine access
+            </h2>
+            <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+              Instead of treating every pharmacy in isolation, MediFind Connect
+              coordinates patient discovery, inter-store stock sharing, and
+              regional shortage visibility.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {domainModules.map((mod) => (
-              <Card key={mod.href} interactive className="flex flex-col justify-between">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {workflowSteps.map((item) => (
+              <Card key={item.step} className="bg-slate-50/50">
                 <CardHeader>
-                  <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="flex items-center justify-between mb-2">
                     <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center">
-                      {mod.icon}
+                      {item.icon}
                     </div>
-                    <Badge variant="neutral">{mod.badge}</Badge>
+                    <span className="font-mono text-xs font-bold text-slate-400">
+                      STEP {item.step}
+                    </span>
                   </div>
-                  <CardTitle>{mod.title}</CardTitle>
-                  <CardDescription>{mod.description}</CardDescription>
+                  <CardTitle>{item.title}</CardTitle>
+                  <CardDescription>{item.description}</CardDescription>
                 </CardHeader>
-                <CardContent className="pt-0">
+              </Card>
+            ))}
+          </div>
+        </PageContainer>
+      </section>
+
+      {/* 3. Platform Pillars */}
+      <section className="py-14 sm:py-16">
+        <PageContainer className="space-y-10">
+          <div className="max-w-2xl space-y-2">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              Designed for every participant in the access chain
+            </h2>
+            <p className="text-sm sm:text-base text-slate-600">
+              Dedicated interfaces tailored for patients, pharmacists, and
+              regional supply coordination.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {platformPillars.map((pillar) => (
+              <Card
+                key={pillar.title}
+                interactive
+                className="flex flex-col justify-between"
+              >
+                <CardHeader className="space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center">
+                    {pillar.icon}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-teal-700 uppercase tracking-wide">
+                      {pillar.subtitle}
+                    </p>
+                    <CardTitle className="mt-1">{pillar.title}</CardTitle>
+                  </div>
+                  <CardDescription>{pillar.description}</CardDescription>
+                </CardHeader>
+
+                <CardContent className="pt-0 space-y-5">
+                  <ul className="space-y-2">
+                    {pillar.points.map((pt) => (
+                      <li
+                        key={pt}
+                        className="flex items-start gap-2 text-xs sm:text-sm text-slate-600"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                        <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+
                   <Link
-                    href={mod.href}
+                    href={pillar.href}
                     className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal-700 hover:text-teal-800 transition-colors"
                   >
-                    <span>{mod.cta}</span>
+                    <span>{pillar.cta}</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </PageContainer>
+      </section>
+
+      {/* 4. Trust & Responsible Data Handling */}
+      <section className="pb-16">
+        <PageContainer>
+          <div className="rounded-3xl bg-slate-900 text-white p-8 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div className="lg:col-span-8 space-y-3">
+              <div className="inline-flex items-center gap-2 text-teal-400 text-xs font-bold uppercase tracking-wider">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Trust & Responsible Data Handling</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                Clinical clarity without fabricated predictions
+              </h2>
+              <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
+                MediFind Connect separates verified pharmacy inventory from
+                analytical insights, never exposes privileged credentials in the
+                browser, and never substitutes for licensed medical advice or
+                prescription verification.
+              </p>
+            </div>
+            <div className="lg:col-span-4 flex flex-col gap-3">
+              <div className="p-4 rounded-2xl bg-slate-800/90 border border-slate-700 flex items-start gap-3">
+                <Lock className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-slate-300 leading-relaxed">
+                  <strong className="text-white block mb-0.5">
+                    Role-Scoped Access
+                  </strong>
+                  Pharmacy inventory and transfer actions require authenticated
+                  server verification.
+                </div>
+              </div>
+              <Link
+                href="/pharmacies"
+                className="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-sm transition-colors"
+              >
+                <span>Browse Partner Directory</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
         </PageContainer>
       </section>

@@ -7,11 +7,10 @@ import {
   Pill,
   Search,
   Building2,
-  GitCompareArrows,
-  Activity,
   Menu,
   X,
   LogIn,
+  LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -22,9 +21,9 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
-const navItems: NavItem[] = [
+const publicNavItems: NavItem[] = [
   {
-    label: "Medicines",
+    label: "Find Medicines",
     href: "/medicines",
     icon: <Search className="w-4 h-4" />,
   },
@@ -34,14 +33,9 @@ const navItems: NavItem[] = [
     icon: <Building2 className="w-4 h-4" />,
   },
   {
-    label: "Collaboration",
-    href: "/collaboration",
-    icon: <GitCompareArrows className="w-4 h-4" />,
-  },
-  {
-    label: "Intelligence",
-    href: "/intelligence",
-    icon: <Activity className="w-4 h-4" />,
+    label: "How It Works",
+    href: "/#how-it-works",
+    icon: <Pill className="w-4 h-4" />,
   },
 ];
 
@@ -50,9 +44,15 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isActive = (href: string) => {
+    if (href.startsWith("/#")) return false;
     if (href === "/") return pathname === "/";
     return pathname === href || pathname.startsWith(`${href}/`);
   };
+
+  const inPortal =
+    pathname.startsWith("/pharmacy") ||
+    pathname.startsWith("/collaboration") ||
+    pathname.startsWith("/intelligence");
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/90">
@@ -77,12 +77,12 @@ export function Navbar() {
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
+          {/* Public Discovery Navigation */}
           <nav
             aria-label="Primary navigation"
             className="hidden md:flex items-center gap-1"
           >
-            {navItems.map((item) => {
+            {publicNavItems.map((item) => {
               const active = isActive(item.href);
               return (
                 <Link
@@ -109,20 +109,21 @@ export function Navbar() {
             <Link
               href="/pharmacy/dashboard"
               className={cn(
-                "px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors",
-                isActive("/pharmacy/dashboard") || isActive("/pharmacy/inventory")
+                "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors",
+                inPortal
                   ? "bg-slate-900 text-white"
                   : "text-slate-700 hover:bg-slate-100"
               )}
             >
-              Pharmacy Console
+              <LayoutDashboard className="w-4 h-4" />
+              <span>Pharmacy Portal</span>
             </Link>
             <Link
               href="/pharmacy/login"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-xs"
             >
               <LogIn className="w-4 h-4" />
-              <span>Portal Login</span>
+              <span>Partner Login</span>
             </Link>
           </div>
 
@@ -147,7 +148,7 @@ export function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white">
           <PageContainer className="py-4 space-y-2">
-            {navItems.map((item) => {
+            {publicNavItems.map((item) => {
               const active = isActive(item.href);
               return (
                 <Link
@@ -175,14 +176,14 @@ export function Navbar() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 text-center"
               >
-                Pharmacy Console
+                Pharmacy Portal
               </Link>
               <Link
                 href="/pharmacy/login"
                 onClick={() => setMobileMenuOpen(false)}
                 className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 text-center"
               >
-                Portal Login
+                Partner Login
               </Link>
             </div>
           </PageContainer>
