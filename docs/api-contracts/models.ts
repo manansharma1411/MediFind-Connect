@@ -85,12 +85,14 @@ export interface MedicineBrand {
 
 export interface Medicine {
   id: string; // UUID
-  name: string;
+  name: string; // Alias of displayName for frontend compatibility
+  displayName: string;
   genericName: string;
   primaryBrand: string | null;
   brands: MedicineBrand[];
   therapeuticClass: string | null;
-  form: MedicineForm;
+  form: MedicineForm; // Alias of dosageForm for frontend compatibility
+  dosageForm: MedicineForm;
   strength: string; // e.g., "500 mg"
   packSize: string; // e.g., "Strip of 10 Tablets"
   isPrescriptionRequired: boolean;
