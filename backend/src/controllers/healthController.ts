@@ -4,8 +4,9 @@ import { getServiceSupabaseClient } from '../config/supabase.js';
 import { ApiResponse, HealthCheckResponse, ReadinessCheckResponse } from '../types/index.js';
 
 /**
- * GET /api/health
+ * GET /api/health and GET /health
  * Public health check: confirms API process is running cleanly without exposing secrets.
+ * Provides both root status (for frontend health badge) and structured data envelope.
  */
 export async function getHealth(_req: Request, res: Response): Promise<void> {
   const payload: HealthCheckResponse = {
@@ -17,18 +18,18 @@ export async function getHealth(_req: Request, res: Response): Promise<void> {
     timestamp: new Date().toISOString(),
   };
 
-  const response: ApiResponse<HealthCheckResponse> = {
+  res.status(200).json({
+    status: 'ok',
     success: true,
+    service: 'backend',
     message: 'MediFind Connect API is running',
     data: payload,
     timestamp: new Date().toISOString(),
-  };
-
-  res.status(200).json(response);
+  });
 }
 
 /**
- * GET /api/readiness
+ * GET /api/readiness and GET /readiness
  * Database readiness check: distinguishes API health from database connectivity.
  */
 export async function getReadiness(_req: Request, res: Response): Promise<void> {
@@ -46,6 +47,7 @@ export async function getReadiness(_req: Request, res: Response): Promise<void> 
     };
 
     const response: ApiResponse<ReadinessCheckResponse> = {
+      status: 'degraded',
       success: true,
       data: payload,
       timestamp: new Date().toISOString(),
@@ -57,12 +59,10 @@ export async function getReadiness(_req: Request, res: Response): Promise<void> 
 
   const startTime = Date.now();
   try {
-    // Ping Supabase PostgreSQL using lightweight metadata query
     const { error } = await supabase.from('medicines').select('count', { count: 'exact', head: true });
     const latencyMs = Date.now() - startTime;
 
     if (error && error.code !== 'PGRST116') {
-      // Degraded or missing tables
       const payload: ReadinessCheckResponse = {
         status: 'degraded',
         database: {
@@ -73,7 +73,12 @@ export async function getReadiness(_req: Request, res: Response): Promise<void> 
         },
         timestamp: new Date().toISOString(),
       };
-      res.status(200).json({ success: true, data: payload, timestamp: new Date().toISOString() });
+      res.status(200).json({
+        status: 'degraded',
+        success: true,
+        data: payload,
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
@@ -88,7 +93,12 @@ export async function getReadiness(_req: Request, res: Response): Promise<void> 
       timestamp: new Date().toISOString(),
     };
 
-    res.status(200).json({ success: true, data: payload, timestamp: new Date().toISOString() });
+    res.status(200).json({
+      status: 'ready',
+      success: true,
+      data: payload,
+      timestamp: new Date().toISOString(),
+    });
   } catch (err: unknown) {
     const latencyMs = Date.now() - startTime;
     const errorMessage = err instanceof Error ? err.message : 'Unknown database error';
@@ -102,6 +112,11 @@ export async function getReadiness(_req: Request, res: Response): Promise<void> 
       },
       timestamp: new Date().toISOString(),
     };
-    res.status(200).json({ success: true, data: payload, timestamp: new Date().toISOString() });
+    res.status(200).json({
+      status: 'degraded',
+      success: true,
+      data: payload,
+      timestamp: new Date().toISOString(),
+    });
   }
 }

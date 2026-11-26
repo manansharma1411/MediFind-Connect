@@ -1,5 +1,7 @@
 export interface ApiResponse<T = unknown> {
   success: boolean;
+  status?: string;
+  service?: string;
   message?: string;
   data?: T;
   error?: {
