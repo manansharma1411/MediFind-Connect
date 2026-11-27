@@ -1,0 +1,49 @@
+import { Router } from 'express';
+import { createPharmacyController, pharmacyController } from '../controllers/pharmacyController.js';
+import { guardPrivateInventory } from '../controllers/medicineController.js';
+import { createRequireAuth, requireAuth, TokenVerifier } from '../middleware/auth.js';
+import { PharmacyService } from '../services/pharmacyService.js';
+
+export function createPharmacyRouter(options?: {
+  service?: PharmacyService;
+  tokenVerifier?: TokenVerifier;
+}): Router {
+  const router = Router();
+  const controller = options?.service
+    ? createPharmacyController(options.service)
+    : pharmacyController;
+  const auth = options?.tokenVerifier
+    ? createRequireAuth(options.tokenVerifier)
+    : requireAuth;
+
+  // All /api/v1/pharmacies/* management routes require valid Supabase Auth JWT
+  router.use(auth);
+
+  // Registration
+  router.post('/', controller.registerPharmacy);
+
+  // Authorized Pharmacy Profile & Operating Hours
+  router.get('/me', controller.getMyProfile);
+  router.put('/me', controller.updateMyProfile);
+  router.get('/me/operating-hours', controller.getMyOperatingHours);
+  router.put('/me/operating-hours', controller.updateMyOperatingHours);
+
+  // Dashboard & Alerts
+  router.get('/me/dashboard', controller.getDashboard);
+  router.get('/me/alerts', controller.getAlerts);
+
+  // Inventory Management & Atomic Adjustments
+  router.get('/me/inventory', controller.listInventory);
+  router.post('/me/inventory', controller.addInventoryItem);
+  router.get('/me/inventory/:itemId', controller.getInventoryItem);
+  router.put('/me/inventory/:itemId', controller.updateInventoryItem);
+  router.post('/me/inventory/:itemId/adjust', controller.adjustInventory);
+  router.get('/me/inventory/:itemId/history', controller.getInventoryItemHistory);
+
+  // Block arbitrary :id/inventory manipulation (must use /me/inventory)
+  router.get('/:id/inventory', guardPrivateInventory);
+
+  return router;
+}
+
+export default createPharmacyRouter();

@@ -23,8 +23,8 @@ tags:
     description: Live health and connectivity probes
   - name: Medicine Discovery (Operational)
     description: Public search, details, availability, and price comparison endpoints
-  - name: Pharmacy & Auth (Planned)
-    description: Pharmacy authentication, profiles, dashboards, and private inventory
+  - name: Pharmacy Management (Operational)
+    description: Authenticated pharmacy profile, operating hours, dashboard, inventory, and alerts endpoints
   - name: Collaboration (Planned)
     description: Inter-pharmacy B2B stock transfer workflows
   - name: Intelligence (Planned)
@@ -204,90 +204,124 @@ paths:
           description: Price comparison list (MRP vs Selling Price in INR)
 
   # ============================================================================
-  # PHARMACY & AUTH (PLANNED)
+  # PHARMACY MANAGEMENT (OPERATIONAL - AUTHENTICATED /me/*)
   # ============================================================================
-  /api/v1/auth/login:
+  /api/v1/pharmacies:
     post:
       tags:
-        - Pharmacy & Auth (Planned)
-      summary: '[PLANNED] Authenticate pharmacy staff or admin user'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, password]
-              properties:
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                  format: password
-      responses:
-        '200':
-          description: Authenticated session with JWT access token
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /api/v1/pharmacies/register:
-    post:
-      tags:
-        - Pharmacy & Auth (Planned)
-      summary: '[PLANNED] Register a new licensed pharmacy facility'
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Register pharmacy profile for authenticated user'
+      security:
+        - BearerAuth: []
       responses:
         '201':
-          description: Pharmacy registered and pending verification
+          description: Pharmacy registered (verificationStatus PENDING)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Duplicate pharmacy registration
 
-  /api/v1/pharmacies:
+  /api/v1/pharmacies/me:
     get:
       tags:
-        - Pharmacy & Auth (Planned)
-      summary: '[PLANNED] Discover active partner pharmacies'
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Retrieve authenticated user authorized pharmacy profile'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Authorized InternalPharmacy profile
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Update permitted pharmacy profile fields'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile updated
+
+  /api/v1/pharmacies/me/operating-hours:
+    get:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Retrieve pharmacy IST operating hours'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Weekly schedule
+    put:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Update pharmacy IST operating hours'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Operating hours updated
+
+  /api/v1/pharmacies/me/dashboard:
+    get:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Retrieve pharmacy dashboard metrics and recent movements'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Real inventory metrics and audit movements
+
+  /api/v1/pharmacies/me/alerts:
+    get:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Retrieve low-stock, out-of-stock, near-expiry, and expired alerts'
+      security:
+        - BearerAuth: []
       parameters:
-        - name: area
-          in: query
-          schema:
-            type: string
-        - name: is24x7
-          in: query
-          schema:
-            type: boolean
-        - name: page
+        - name: nearExpiryDays
           in: query
           schema:
             type: integer
-            default: 1
+            default: 30
       responses:
         '200':
-          description: Paginated pharmacy directory
+          description: Alerts list and summary counts
 
-  /api/v1/pharmacies/{id}:
+  /api/v1/pharmacies/me/inventory:
     get:
       tags:
-        - Pharmacy & Auth (Planned)
-      summary: '[PLANNED] Retrieve pharmacy public profile'
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] List, search, filter, and paginate private pharmacy inventory'
+      security:
+        - BearerAuth: []
       responses:
         '200':
-          description: Pharmacy details
+          description: Paginated PrivateInventoryItem list
+    post:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Add a medicine batch to pharmacy inventory'
+      security:
+        - BearerAuth: []
+      responses:
+        '201':
+          description: Batch added and INITIAL_STOCK audit logged
 
-  /api/v1/pharmacies/{id}/dashboard:
+  /api/v1/pharmacies/me/inventory/{itemId}:
     get:
       tags:
-        - Pharmacy & Auth (Planned)
-      summary: '[PLANNED] Retrieve pharmacy operational KPIs and summary'
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Retrieve single inventory item details'
       security:
         - BearerAuth: []
       parameters:
-        - name: id
+        - name: itemId
           in: path
           required: true
           schema:
@@ -295,19 +329,15 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Dashboard summary metrics
-        '403':
-          $ref: '#/components/responses/Forbidden'
-
-  /api/v1/pharmacies/{id}/inventory:
-    get:
+          description: Inventory item details
+    put:
       tags:
-        - Pharmacy & Auth (Planned)
-      summary: '[PLANNED] Retrieve private inventory for authorized pharmacy'
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Update inventory item metadata (prices, threshold, expiry)'
       security:
         - BearerAuth: []
       parameters:
-        - name: id
+        - name: itemId
           in: path
           required: true
           schema:
@@ -315,46 +345,45 @@ paths:
             format: uuid
       responses:
         '200':
-          description: List of private InventoryItem records
-        '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Inventory item updated
 
-    patch:
+  /api/v1/pharmacies/me/inventory/{itemId}/adjust:
+    post:
       tags:
-        - Pharmacy & Auth (Planned)
-      summary: '[PLANNED] Update or adjust private inventory stock atomically'
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Perform atomic stock adjustment with immutable audit log'
       security:
         - BearerAuth: []
       parameters:
-        - name: id
+        - name: itemId
           in: path
           required: true
           schema:
             type: string
             format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [medicineId, deltaQuantity, reason]
-              properties:
-                medicineId:
-                  type: string
-                  format: uuid
-                deltaQuantity:
-                  type: integer
-                reason:
-                  type: string
-                  enum: [INITIAL_STOCK, SALE, SALE_RETURN, STOCK_AUDIT, EXPIRY_DISPOSAL]
-                notes:
-                  type: string
       responses:
         '200':
-          description: Stock updated atomically with audit log ID
+          description: Stock adjusted atomically
         '409':
-          description: Negative stock prevented (INSUFFICIENT_STOCK)
+          description: INSUFFICIENT_STOCK (negative stock prevented)
+
+  /api/v1/pharmacies/me/inventory/{itemId}/history:
+    get:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Retrieve stock movement audit history for an item'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Chronological movement history
 
   # ============================================================================
   # COLLABORATION / STOCK TRANSFERS (PLANNED)
