@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Lock, Mail, Pill, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Eye, Lock, Mail, Pill, ShieldCheck } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import {
   Card,
@@ -15,34 +16,75 @@ import {
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { DemoNoticeBanner } from "@/components/shared/DemoNoticeBanner";
+import { Toast } from "@/components/ui/Toast";
+import { usePharmacyAuth } from "@/context/PharmacyAuthContext";
+import { loginPharmacy } from "@/services/pharmacyService";
+import type { ApiError } from "@/types/api";
 
 export default function PharmacyLoginPage() {
+  const router = useRouter();
+  const { setSession, enterPreviewSession } = usePharmacyAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFieldError(null);
+    setApiError(null);
+
+    if (!email.trim() || !password.trim()) {
+      setFieldError("Both work email and password are required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const session = await loginPharmacy(email.trim(), password);
+      setSession(session);
+      router.push("/pharmacy/dashboard");
+    } catch (err) {
+      const eObj = err as Partial<ApiError>;
+      if (eObj.status === 404 || eObj.status === 501 || eObj.code === "NETWORK_ERROR") {
+        setApiError(
+          "Backend endpoint POST /api/v1/auth/login is not yet available. You can inspect the portal using UI Preview Mode below."
+        );
+      } else {
+        setApiError(eObj.message || "Authentication failed. Check your credentials.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePreviewLogin = () => {
+    enterPreviewSession();
+    router.push("/pharmacy/dashboard");
+  };
 
   return (
     <PageContainer size="md" className="py-10 sm:py-16 space-y-6">
-      <DemoNoticeBanner
-        title="Authentication Pending Backend"
-        description="This is the UI shell for pharmacy staff login. Real Supabase JWT authentication will be wired once Person B's auth endpoints are ready."
-      />
-
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
         <div className="md:col-span-5 bg-slate-900 text-white rounded-2xl p-6 sm:p-8 flex flex-col justify-between space-y-6">
           <div className="space-y-4">
             <div className="w-11 h-11 rounded-xl bg-teal-500 text-slate-950 flex items-center justify-center">
               <Pill className="w-6 h-6 rotate-45" />
             </div>
-            <Badge variant="brand" className="bg-slate-800 text-teal-300 border-slate-700">
+            <Badge
+              variant="brand"
+              className="bg-slate-800 text-teal-300 border-slate-700"
+            >
               Partner Portal
             </Badge>
             <h1 className="text-2xl font-extrabold tracking-tight">
               Pharmacy Operations Access
             </h1>
             <p className="text-sm text-slate-300 leading-relaxed">
-              Sign in to manage store stock levels, monitor low-stock alerts,
-              and coordinate inter-pharmacy medicine transfers.
+              Sign in to manage store stock levels, monitor low-stock & expiry
+              alerts, and coordinate inter-pharmacy medicine transfers.
             </p>
           </div>
 
@@ -58,15 +100,20 @@ export default function PharmacyLoginPage() {
           <CardHeader>
             <CardTitle>Sign In to Pharmacy Portal</CardTitle>
             <CardDescription>
-              Enter your registered pharmacy credentials.
+              Enter your registered pharmacy staff credentials.
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <form
-              onSubmit={(e) => e.preventDefault()}
-              className="space-y-4"
-            >
+            {(fieldError || apiError) && (
+              <Toast
+                variant="warning"
+                title={fieldError ? "Validation Error" : "Sign-In Notice"}
+                description={fieldError ?? apiError ?? undefined}
+              />
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 label="Work Email"
                 type="email"
@@ -75,6 +122,7 @@ export default function PharmacyLoginPage() {
                 placeholder="pharmacist@store.example.com"
                 leftIcon={<Mail className="w-4 h-4" />}
                 autoComplete="email"
+                required
               />
               <Input
                 label="Password"
@@ -84,30 +132,33 @@ export default function PharmacyLoginPage() {
                 placeholder="Enter your password"
                 leftIcon={<Lock className="w-4 h-4" />}
                 autoComplete="current-password"
+                required
               />
-
-              <div className="flex items-center justify-between text-xs pt-1">
-                <label className="inline-flex items-center gap-2 text-slate-600 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="rounded border-slate-300 text-teal-600"
-                  />
-                  <span>Keep session active</span>
-                </label>
-                <span className="text-slate-400">
-                  Password reset via backend
-                </span>
-              </div>
 
               <Button
                 type="submit"
                 className="w-full"
-                disabled
-                title="Authentication backend not yet connected"
+                isLoading={isSubmitting}
               >
-                Sign In (Pending Backend Auth)
+                Sign In
               </Button>
             </form>
+
+            <div className="pt-3 border-t border-slate-100 space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                leftIcon={<Eye className="w-4 h-4" />}
+                onClick={handlePreviewLogin}
+              >
+                Enter UI Preview Mode (Sample Data)
+              </Button>
+              <p className="text-[11px] text-slate-500 text-center">
+                Preview mode uses isolated read-only sample data while backend
+                auth is planned.
+              </p>
+            </div>
           </CardContent>
 
           <CardFooter className="text-xs text-slate-600">

@@ -86,7 +86,9 @@ export function filterAndSortAvailability(
     }
 
     if (filters.openNow) {
-      const isOpen = item.is24x7 || item.isOpenNow === true;
+      const isOpen =
+        item.isOpenNow === true ||
+        (item.isOpenNow !== false && item.is24x7 === true);
       if (!isOpen) return false;
     }
 

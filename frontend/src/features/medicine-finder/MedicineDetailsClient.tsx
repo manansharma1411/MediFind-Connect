@@ -96,9 +96,9 @@ export function MedicineDetailsClient() {
         ),
         getMedicinePrices(medicineId, location.coords, controller.signal),
       ]);
-      setMedicine(medRes.medicine);
-      setAvailability(availRes.items);
-      setPrices(priceRes.items);
+      setMedicine(medRes.medicine ?? availRes.medicine ?? priceRes.medicine);
+      setAvailability(availRes.pharmacies);
+      setPrices(priceRes.comparisons);
       setDataSource(
         medRes.source === "live" && availRes.source === "live" ? "live" : "demo"
       );
@@ -129,9 +129,9 @@ export function MedicineDetailsClient() {
           getMedicinePrices(medicineId, location.coords, controller.signal),
         ]);
         if (controller.signal.aborted) return;
-        setMedicine(medRes.medicine);
-        setAvailability(availRes.items);
-        setPrices(priceRes.items);
+        setMedicine(medRes.medicine ?? availRes.medicine ?? priceRes.medicine);
+        setAvailability(availRes.pharmacies);
+        setPrices(priceRes.comparisons);
         setDataSource(
           medRes.source === "live" && availRes.source === "live"
             ? "live"
