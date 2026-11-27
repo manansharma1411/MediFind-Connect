@@ -15,8 +15,12 @@ import {
   Menu,
   X,
   UserCircle2,
-  GitCompareArrows,
   Activity,
+  Search,
+  Inbox,
+  Send,
+  FileText,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -104,12 +108,35 @@ function PharmacyPortalShell({ children }: { children: React.ReactNode }) {
     },
   ];
 
-  const networkNav: NavItem[] = [
+  const collaborationNav: NavItem[] = [
     {
-      label: "Collaboration",
-      href: "/collaboration",
-      icon: <GitCompareArrows className="w-4 h-4" />,
+      label: "Stock Discovery",
+      href: "/collaboration/discover",
+      icon: <Search className="w-4 h-4" />,
     },
+    {
+      label: "Incoming Requests",
+      href: "/collaboration/incoming",
+      icon: <Inbox className="w-4 h-4" />,
+    },
+    {
+      label: "Outgoing Requests",
+      href: "/collaboration/outgoing",
+      icon: <Send className="w-4 h-4" />,
+    },
+    {
+      label: "Transfer Details",
+      href: "/collaboration",
+      icon: <FileText className="w-4 h-4" />,
+    },
+    {
+      label: "Transfer History",
+      href: "/collaboration/history",
+      icon: <Clock className="w-4 h-4" />,
+    },
+  ];
+
+  const networkNav: NavItem[] = [
     {
       label: "Intelligence",
       href: "/intelligence",
@@ -230,7 +257,13 @@ function PharmacyPortalShell({ children }: { children: React.ReactNode }) {
             <div className="space-y-1">{renderLinks(primaryNav)}</div>
             <div className="pt-3 border-t border-slate-100 space-y-1">
               <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Network Portals
+                Collaboration
+              </p>
+              {renderLinks(collaborationNav)}
+            </div>
+            <div className="pt-3 border-t border-slate-100 space-y-1">
+              <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Intelligence
               </p>
               {renderLinks(networkNav)}
             </div>
@@ -252,7 +285,14 @@ function PharmacyPortalShell({ children }: { children: React.ReactNode }) {
 
             <div className="pt-4 border-t border-slate-100 space-y-1">
               <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Network Portals
+                Collaboration
+              </p>
+              <div className="space-y-0.5">{renderLinks(collaborationNav)}</div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 space-y-1">
+              <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Intelligence
               </p>
               <div className="space-y-0.5">{renderLinks(networkNav)}</div>
             </div>

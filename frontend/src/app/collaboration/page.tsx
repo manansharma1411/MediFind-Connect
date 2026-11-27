@@ -1,64 +1,75 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import {
-  ArrowRight,
-  Building2,
-  MapPin,
-  Package,
-  Truck,
-  CheckCircle2,
-  XCircle,
-} from "lucide-react";
-import { PortalShell } from "@/components/layout/PortalShell";
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowRight, Inbox, PlusCircle, Search, Send, Clock } from "lucide-react";
+import { PharmacyPortalLayout } from "@/components/layout/PharmacyPortalLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Tabs } from "@/components/ui/Tabs";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/Card";
-import { Badge, StatusBadge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
-import { DemoNoticeBanner } from "@/components/shared/DemoNoticeBanner";
+import { Badge } from "@/components/ui/Badge";
 import {
-  SAMPLE_TRANSFERS,
-  type SampleTransferRequest,
-} from "@/mock-data/transfers";
-import { cn } from "@/lib/cn";
+  EmptyState,
+  ErrorState,
+  LoadingSkeleton,
+} from "@/components/ui/States";
+import { DemoNoticeBanner } from "@/components/shared/DemoNoticeBanner";
+import { TransferStatusBadge } from "@/components/collaboration/TransferStatusBadge";
+import { usePharmacyAuth } from "@/context/PharmacyAuthContext";
+import { listTransfers } from "@/services/collaborationService";
+import type { TransferRequest } from "@/types/collaboration";
+import type { ApiError } from "@/types/api";
 
-const STATUS_PROGRESSION = [
-  { label: "Requested", desc: "Partner submits stock request" },
-  { label: "Approved / Rejected", desc: "Supplying store reviews stock" },
-  { label: "Dispatched", desc: "Handed off to runner or courier" },
-  { label: "Received", desc: "Verified and added to inventory" },
-];
-
-export default function CollaborationPage() {
-  const [activeTab, setActiveTab] = useState<"incoming" | "outgoing">(
-    "incoming"
+export default function CollaborationOverviewPage() {
+  const { session, logout } = usePharmacyAuth();
+  const [transfers, setTransfers] = useState<TransferRequest[]>([]);
+  const [source, setSource] = useState<"live" | "preview" | "unavailable">(
+    "unavailable"
   );
-  const [selectedTransfer, setSelectedTransfer] =
-    useState<SampleTransferRequest | null>(null);
+  const [notice, setNotice] = useState<string | undefined>();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const incomingCount = SAMPLE_TRANSFERS.filter(
-    (t) => t.direction === "incoming"
-  ).length;
-  const outgoingCount = SAMPLE_TRANSFERS.filter(
-    (t) => t.direction === "outgoing"
-  ).length;
+  useEffect(() => {
+    if (!session) return;
+    const controller = new AbortController();
 
-  const visibleTransfers = useMemo(
-    () => SAMPLE_TRANSFERS.filter((t) => t.direction === activeTab),
-    [activeTab]
-  );
+    (async () => {
+      try {
+        const res = await listTransfers(
+          session,
+          { direction: "all" },
+          controller.signal
+        );
+        if (controller.signal.aborted) return;
+        setTransfers(res.data ?? []);
+        setSource(res.source);
+        setNotice(res.notice);
+      } catch (err) {
+        const apiErr = err as Partial<ApiError>;
+        if (apiErr.code === "REQUEST_CANCELLED") return;
+        if (apiErr.status === 401) {
+          logout();
+          return;
+        }
+        setError(apiErr.message || "Unable to load transfer overview.");
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [session, logout]);
 
   return (
-    <PortalShell>
+    <PharmacyPortalLayout>
       <PageHeader
         breadcrumbs={[
           { label: "Home", href: "/" },
@@ -66,239 +77,149 @@ export default function CollaborationPage() {
           { label: "Collaboration" },
         ]}
         title="Inter-Pharmacy Collaboration"
-        description="Coordinate peer-to-peer stock transfers with nearby partner pharmacies to resolve urgent patient stockouts."
-        badge={<Badge variant="neutral">Preview Shell</Badge>}
-      />
-
-      <DemoNoticeBanner
-        title="Collaboration UI Preview"
-        description="Transfer records below use isolated sample data. Approve, reject, dispatch, and receive actions are disabled until Person B's transfer workflow endpoints are connected."
-      />
-
-      {/* Expected Status Progression */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Transfer Workflow Progression</CardTitle>
-          <CardDescription>
-            Standard lifecycle for every inter-pharmacy stock requisition
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {STATUS_PROGRESSION.map((step, idx) => (
-              <div
-                key={step.label}
-                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start justify-between gap-2"
-              >
-                <div>
-                  <span className="font-mono text-[11px] font-bold text-teal-700">
-                    STAGE 0{idx + 1}
-                  </span>
-                  <p className="text-xs font-bold text-slate-900 mt-0.5">
-                    {step.label}
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {step.desc}
-                  </p>
-                </div>
-                {idx < STATUS_PROGRESSION.length - 1 && (
-                  <ArrowRight className="w-4 h-4 text-slate-300 hidden lg:block shrink-0 mt-1" />
-                )}
-              </div>
-            ))}
+        description="Discover transfer-eligible stock at nearby partner pharmacies, coordinate approvals, and track dispatch and receipt."
+        badge={
+          source === "live" ? (
+            <Badge variant="success" dot>
+              Live API
+            </Badge>
+          ) : source === "preview" ? (
+            <Badge variant="warning" dot>
+              UI Preview Data
+            </Badge>
+          ) : (
+            <Badge variant="neutral">Awaiting Backend API</Badge>
+          )
+        }
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/collaboration/discover"
+              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700"
+            >
+              <Search className="w-4 h-4" />
+              <span>Discover Stock</span>
+            </Link>
+            <Link
+              href="/collaboration/request"
+              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-white text-slate-700 border border-slate-200 text-sm font-semibold hover:bg-slate-50"
+            >
+              <PlusCircle className="w-4 h-4 text-teal-600" />
+              <span>New Request</span>
+            </Link>
           </div>
-        </CardContent>
-      </Card>
+        }
+      />
 
-      {/* Tabs: Incoming / Outgoing */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Tabs
-          activeTab={activeTab}
-          onChange={(id) => setActiveTab(id as "incoming" | "outgoing")}
-          tabs={[
-            { id: "incoming", label: "Incoming Requests", count: incomingCount },
-            { id: "outgoing", label: "Outgoing Requests", count: outgoingCount },
-          ]}
+      {notice && (
+        <DemoNoticeBanner
+          title={source === "preview" ? "Preview Mode" : "Backend Dependency"}
+          description={notice}
         />
-        <Button size="sm" variant="outline" disabled>
-          New Transfer Request (Pending API)
-        </Button>
-      </div>
+      )}
 
-      {/* Transfer Request Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {visibleTransfers.map((tr) => (
-          <Card key={tr.id} interactive className="flex flex-col justify-between">
-            <CardHeader>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className="font-mono text-[11px] font-semibold text-slate-400">
-                    {tr.id} • {tr.requestedAt}
-                  </span>
-                  <CardTitle className="mt-1">{tr.brand}</CardTitle>
-                  <CardDescription>{tr.medicineName}</CardDescription>
+      {/* Quick Collaboration Navigation Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          {
+            title: "Stock Discovery",
+            desc: "Search partner pharmacies",
+            href: "/collaboration/discover",
+            icon: <Search className="w-4 h-4 text-teal-600" />,
+          },
+          {
+            title: "Incoming Requests",
+            desc: "Approve or reject requests",
+            href: "/collaboration/incoming",
+            icon: <Inbox className="w-4 h-4 text-teal-600" />,
+          },
+          {
+            title: "Outgoing Requests",
+            desc: "Track & confirm receipt",
+            href: "/collaboration/outgoing",
+            icon: <Send className="w-4 h-4 text-teal-600" />,
+          },
+          {
+            title: "Transfer History",
+            desc: "Search & audit past transfers",
+            href: "/collaboration/history",
+            icon: <Clock className="w-4 h-4 text-teal-600" />,
+          },
+        ].map((card) => (
+          <Link key={card.href} href={card.href}>
+            <Card interactive className="h-full">
+              <CardHeader className="p-4">
+                <div className="w-9 h-9 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center mb-2">
+                  {card.icon}
                 </div>
-                <StatusBadge status={tr.status} />
-              </div>
-            </CardHeader>
-
-            <CardContent className="pt-0 space-y-3">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 inline-flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-teal-600" />
-                    {tr.direction === "incoming"
-                      ? "Requesting Store:"
-                      : "Supplying Store:"}
-                  </span>
-                  <span className="font-semibold text-slate-900">
-                    {tr.partnerPharmacy}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 inline-flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                    Location:
-                  </span>
-                  <span className="text-slate-700">
-                    {tr.partnerArea} ({tr.distanceKm} km)
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 inline-flex items-center gap-1.5">
-                    <Package className="w-3.5 h-3.5 text-slate-400" />
-                    Requested Quantity:
-                  </span>
-                  <span className="font-bold text-teal-700">
-                    {tr.quantity} strips
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-
-            <CardFooter>
-              <div className="flex items-center gap-2">
-                {tr.direction === "incoming" && tr.status === "requested" && (
-                  <>
-                    <Button size="sm" variant="primary" disabled>
-                      Approve
-                    </Button>
-                    <Button size="sm" variant="outline" disabled>
-                      Reject
-                    </Button>
-                  </>
-                )}
-                {tr.direction === "incoming" && tr.status === "approved" && (
-                  <Button size="sm" variant="primary" disabled>
-                    Mark Dispatched
-                  </Button>
-                )}
-                {tr.direction === "outgoing" && tr.status === "dispatched" && (
-                  <Button size="sm" variant="primary" disabled>
-                    Confirm Receipt
-                  </Button>
-                )}
-                {tr.status === "received" && (
-                  <span className="text-xs font-semibold text-emerald-700">
-                    Completed
-                  </span>
-                )}
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setSelectedTransfer(tr)}
-              >
-                Details
-              </Button>
-            </CardFooter>
-          </Card>
+                <CardTitle className="text-sm">{card.title}</CardTitle>
+                <CardDescription className="text-xs">{card.desc}</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
         ))}
       </div>
 
-      {/* Transfer Details Modal */}
-      <Modal
-        isOpen={Boolean(selectedTransfer)}
-        onClose={() => setSelectedTransfer(null)}
-        title={selectedTransfer ? `Transfer ${selectedTransfer.id}` : "Transfer"}
-        description={
-          selectedTransfer
-            ? `${selectedTransfer.brand} — ${selectedTransfer.medicineName}`
-            : undefined
-        }
-        footer={
-          <div className="flex flex-wrap items-center justify-between w-full gap-2">
-            <span className="text-xs text-slate-500">
-              Preview actions are disabled until backend API connects
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                leftIcon={<XCircle className="w-3.5 h-3.5" />}
-                disabled
+      {/* Recent Transfers */}
+      {isLoading ? (
+        <LoadingSkeleton rows={4} />
+      ) : error ? (
+        <ErrorState title="Unable to load transfers" description={error} />
+      ) : source === "unavailable" ? (
+        <EmptyState
+          title="Collaboration endpoints unavailable"
+          description="GET /api/v1/transfers is awaiting Person B implementation. Transfers will appear once the backend is connected."
+        />
+      ) : transfers.length === 0 ? (
+        <EmptyState
+          title="No transfer requests yet"
+          description="Use Stock Discovery to locate medicines at nearby partner pharmacies and submit a transfer request."
+        />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Active & Recent Transfers ({transfers.length})
+            </CardTitle>
+            <CardDescription>
+              Select any transfer to view its full timeline and permitted
+              actions.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {transfers.map((tr) => (
+              <div
+                key={tr.id}
+                className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
-                Reject
-              </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
-                disabled
-              >
-                Approve
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                leftIcon={<Truck className="w-3.5 h-3.5" />}
-                disabled
-              >
-                Dispatch
-              </Button>
-            </div>
-          </div>
-        }
-      >
-        {selectedTransfer && (
-          <div className="space-y-4 text-sm">
-            <div className="flex items-center justify-between">
-              <StatusBadge status={selectedTransfer.status} />
-              <span className="text-xs text-slate-500">
-                {selectedTransfer.requestedAt}
-              </span>
-            </div>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-xs font-bold text-slate-500">
+                      {tr.transferCode}
+                    </span>
+                    <TransferStatusBadge status={tr.status} />
+                  </div>
+                  <p className="font-bold text-sm text-slate-900">
+                    {tr.medicineName} ({tr.quantityRequested} units)
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    From <strong>{tr.fulfillingPharmacyName}</strong> → To{" "}
+                    <strong>{tr.requestingPharmacyName}</strong>
+                  </p>
+                </div>
 
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Partner Pharmacy</span>
-                <span className="font-bold text-slate-900">
-                  {selectedTransfer.partnerPharmacy}
-                </span>
+                <Link
+                  href={`/collaboration/transfers/${encodeURIComponent(tr.id)}`}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 hover:text-teal-800 shrink-0"
+                >
+                  <span>View Details</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Area & Distance</span>
-                <span className="text-slate-800">
-                  {selectedTransfer.partnerArea} ({selectedTransfer.distanceKm} km)
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Quantity</span>
-                <span className={cn("font-bold text-teal-700")}>
-                  {selectedTransfer.quantity} strips
-                </span>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-600">
-              <strong className="text-slate-800 block mb-1">
-                Requisition Notes
-              </strong>
-              {selectedTransfer.notes}
-            </div>
-          </div>
-        )}
-      </Modal>
-    </PortalShell>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+    </PharmacyPortalLayout>
   );
 }
