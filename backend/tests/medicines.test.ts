@@ -225,7 +225,11 @@ let baseUrl: string;
 
 test.before(() => {
   const service = new MedicineService(new InMemoryMedicineRepository());
-  const app = createApp({ medicineService: service });
+  const app = createApp({
+    medicineService: service,
+    tokenVerifier: async (token) =>
+      token === 'fake-user-token' ? { id: 'unprivileged-user', email: 'u@example.com' } : null,
+  });
   return new Promise<void>((resolve) => {
     server = app.listen(0, () => {
       const addr = server.address();

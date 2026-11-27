@@ -94,10 +94,20 @@ List endpoints accept `?page=1&limit=20` (max `limit=100`) and return:
 * `GET /api/v1/medicines/:id` — Public medicine details and brands.
 * `GET /api/v1/medicines/:id/availability` — Geo-sorted availability (`lat`, `lng`, `radiusKm`) excluding expired stock and private fields.
 * `GET /api/v1/medicines/:id/prices` — INR price comparisons across compatible formulations (`sortBy=price_asc|distance_asc`).
+* **Pharmacy Management (Requires `Authorization: Bearer <Supabase_JWT>`):**
+  * `POST /api/v1/pharmacies` — Register pharmacy profile for authenticated user (409 on duplicate).
+  * `GET / PUT /api/v1/pharmacies/me` — Retrieve / update authorized pharmacy profile.
+  * `GET / PUT /api/v1/pharmacies/me/operating-hours` — Retrieve / update IST operating hours.
+  * `GET /api/v1/pharmacies/me/dashboard` — Real inventory KPIs and recent movements.
+  * `GET /api/v1/pharmacies/me/alerts` — Configurable alerts (`?nearExpiryDays=30`).
+  * `GET / POST /api/v1/pharmacies/me/inventory` — Search/filter/paginate or add batch.
+  * `GET / PUT /api/v1/pharmacies/me/inventory/:itemId` — View or update batch metadata.
+  * `POST /api/v1/pharmacies/me/inventory/:itemId/adjust` — Atomic stock adjustment with audit history.
+  * `GET /api/v1/pharmacies/me/inventory/:itemId/history` — Item stock movement ledger.
 
 ### Planned for Upcoming Phases (NOT YET IMPLEMENTED)
 Do **not** call these in production UI without fallback/mocking until Person B marks them operational:
-* **Pharmacy & Auth:** `POST /api/v1/auth/login`, `POST /api/v1/pharmacies/register`, `GET /api/v1/pharmacies`, `GET /api/v1/pharmacies/:id`, `GET /api/v1/pharmacies/:id/dashboard`, `GET/PATCH /api/v1/pharmacies/:id/inventory` (currently guarded with 401/403)
+* **Public Pharmacy Directory:** `GET /api/v1/pharmacies`, `GET /api/v1/pharmacies/:id`
 * **Collaboration:** `GET/POST /api/v1/transfers`, `PATCH /api/v1/transfers/:id/{approve|reject|dispatch|receive|cancel}`, `GET /api/v1/transfers/:id/history`
 * **Intelligence:** `GET /api/v1/intelligence/{demand-summary|shortage-radar|restock-recommendations}`
 

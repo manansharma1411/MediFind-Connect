@@ -3,10 +3,16 @@ import { securityHeaders, corsMiddleware } from './middleware/security.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import healthRoutes from './routes/health.js';
 import medicineRoutes, { createMedicineRouter } from './routes/medicines.js';
-import { guardPrivateInventory } from './controllers/medicineController.js';
+import pharmacyRoutes, { createPharmacyRouter } from './routes/pharmacies.js';
 import { MedicineService } from './services/medicineService.js';
+import { PharmacyService } from './services/pharmacyService.js';
+import { TokenVerifier } from './middleware/auth.js';
 
-export function createApp(options?: { medicineService?: MedicineService }): Express {
+export function createApp(options?: {
+  medicineService?: MedicineService;
+  pharmacyService?: PharmacyService;
+  tokenVerifier?: TokenVerifier;
+}): Express {
   const app = express();
 
   // Apply security headers
@@ -26,14 +32,21 @@ export function createApp(options?: { medicineService?: MedicineService }): Expr
   app.use('/api', healthRoutes);
   app.use('/', healthRoutes);
 
-  // Mount v1 Medicine Discovery routes
+  // Mount v1 Medicine Discovery routes (public)
   const v1Medicines = options?.medicineService
     ? createMedicineRouter(options.medicineService)
     : medicineRoutes;
   app.use('/api/v1/medicines', v1Medicines);
 
-  // Strict authorization guard on private pharmacy inventory route (Phase 5B implementation)
-  app.get('/api/v1/pharmacies/:id/inventory', guardPrivateInventory);
+  // Mount v1 Pharmacy Management routes (authenticated & tenant-isolated)
+  const v1Pharmacies =
+    options?.pharmacyService || options?.tokenVerifier
+      ? createPharmacyRouter({
+          service: options.pharmacyService,
+          tokenVerifier: options.tokenVerifier,
+        })
+      : pharmacyRoutes;
+  app.use('/api/v1/pharmacies', v1Pharmacies);
 
   // Fallback for unmatched endpoints
   app.use(notFoundHandler);

@@ -133,14 +133,43 @@ export interface PublicPharmacy {
   updatedAt: string;
 }
 
+export type VerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
+
 /**
  * Sensitive internal pharmacy profile restricted to authorized staff of that pharmacy
  * and network administrators. Never expose via public consumer endpoints.
  */
 export interface InternalPharmacy extends PublicPharmacy {
-  licenseNumber: string; // Drugs & Cosmetics Act license ID — CONFIDENTIAL
+  ownerUserId: string | null;
+  licenseNumber: string | null; // Drugs & Cosmetics Act license ID — CONFIDENTIAL
+  isLicensedVerified: boolean;
+  verificationStatus: VerificationStatus;
   email: string | null;
   createdAt: string;
+}
+
+export interface PharmacyAlert {
+  id: string;
+  type: 'LOW_STOCK' | 'OUT_OF_STOCK' | 'NEAR_EXPIRY' | 'EXPIRED';
+  severity: 'CRITICAL' | 'WARNING';
+  inventoryItemId: string;
+  medicineId: string;
+  medicineName: string;
+  batchNumber: string;
+  quantityAvailable: number;
+  reorderThreshold: number;
+  expiryDate: string;
+  daysToExpiry: number;
+  message: string;
+}
+
+export interface PharmacyDashboardMetrics {
+  totalActiveItems: number;
+  totalUnitsAvailable: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  expiringSoonCount: number;
+  expiredCount: number;
 }
 
 /**
