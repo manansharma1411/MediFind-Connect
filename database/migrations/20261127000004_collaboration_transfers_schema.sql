@@ -50,6 +50,7 @@ CREATE INDEX IF NOT EXISTS idx_stock_transfers_sup_pharm
 CREATE INDEX IF NOT EXISTS idx_stock_transfers_status
   ON stock_transfers (status);
 
+DROP TRIGGER IF EXISTS set_stock_transfers_timestamp ON stock_transfers;
 CREATE TRIGGER set_stock_transfers_timestamp
   BEFORE UPDATE ON stock_transfers
   FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
