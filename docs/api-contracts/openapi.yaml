@@ -25,8 +25,8 @@ tags:
     description: Public search, details, availability, and price comparison endpoints
   - name: Pharmacy Management (Operational)
     description: Authenticated pharmacy profile, operating hours, dashboard, inventory, and alerts endpoints
-  - name: Collaboration (Planned)
-    description: Inter-pharmacy B2B stock transfer workflows
+  - name: Collaboration (Operational)
+    description: Authenticated pharmacy-to-pharmacy stock discovery and atomic transfer lifecycle endpoints
   - name: Intelligence (Planned)
     description: Privacy-preserving demand, shortage radar, and smart restock
 
@@ -386,48 +386,48 @@ paths:
           description: Chronological movement history
 
   # ============================================================================
-  # COLLABORATION / STOCK TRANSFERS (PLANNED)
+  # COLLABORATION / STOCK TRANSFERS (OPERATIONAL)
   # ============================================================================
-  /api/v1/transfers:
+  /api/v1/collaboration/stock:
     get:
       tags:
-        - Collaboration (Planned)
-      summary: '[PLANNED] List incoming and outgoing stock transfers for authorized pharmacy'
+        - Collaboration (Operational)
+      summary: '[OPERATIONAL] Discover eligible stock at other pharmacies for transfer'
       security:
         - BearerAuth: []
-      parameters:
-        - name: direction
-          in: query
-          schema:
-            type: string
-            enum: [incoming, outgoing, all]
-        - name: status
-          in: query
-          schema:
-            $ref: '#/components/schemas/TransferStatus'
       responses:
         '200':
-          description: List of transfer requests
+          description: Paginated list of eligible stock (no exact quantities or wholesale costs)
 
+  /api/v1/collaboration/transfers:
+    get:
+      tags:
+        - Collaboration (Operational)
+      summary: '[OPERATIONAL] List incoming and outgoing transfers for authorized pharmacy'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Paginated transfers list
     post:
       tags:
-        - Collaboration (Planned)
-      summary: '[PLANNED] Create a new inter-pharmacy stock transfer request'
+        - Collaboration (Operational)
+      summary: '[OPERATIONAL] Create a new stock transfer request'
       security:
         - BearerAuth: []
       responses:
         '201':
           description: Transfer created in REQUESTED state
 
-  /api/v1/transfers/{id}/approve:
-    patch:
+  /api/v1/collaboration/transfers/{transferId}:
+    get:
       tags:
-        - Collaboration (Planned)
-      summary: '[PLANNED] Approve transfer request and atomically reserve stock'
+        - Collaboration (Operational)
+      summary: '[OPERATIONAL] Retrieve transfer details and immutable audit history'
       security:
         - BearerAuth: []
       parameters:
-        - name: id
+        - name: transferId
           in: path
           required: true
           schema:
@@ -435,17 +435,37 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Approved and stock moved to reserved balance
+          description: Transfer details and event history
 
-  /api/v1/transfers/{id}/reject:
-    patch:
+  /api/v1/collaboration/transfers/{transferId}/approve:
+    post:
       tags:
-        - Collaboration (Planned)
-      summary: '[PLANNED] Reject transfer request'
+        - Collaboration (Operational)
+      summary: '[OPERATIONAL] Approve transfer and atomically reserve stock (supports Idempotency-Key)'
       security:
         - BearerAuth: []
       parameters:
-        - name: id
+        - name: transferId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Approved and stock reserved
+        '409':
+          description: INSUFFICIENT_STOCK or INVALID_STATE_TRANSITION
+
+  /api/v1/collaboration/transfers/{transferId}/reject:
+    post:
+      tags:
+        - Collaboration (Operational)
+      summary: '[OPERATIONAL] Reject transfer request with mandatory reason'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: transferId
           in: path
           required: true
           schema:
@@ -455,15 +475,15 @@ paths:
         '200':
           description: Marked REJECTED
 
-  /api/v1/transfers/{id}/dispatch:
-    patch:
+  /api/v1/collaboration/transfers/{transferId}/dispatch:
+    post:
       tags:
-        - Collaboration (Planned)
-      summary: '[PLANNED] Mark transfer dispatched and deduct reserved stock from sender'
+        - Collaboration (Operational)
+      summary: '[OPERATIONAL] Dispatch an approved transfer'
       security:
         - BearerAuth: []
       parameters:
-        - name: id
+        - name: transferId
           in: path
           required: true
           schema:
@@ -473,15 +493,15 @@ paths:
         '200':
           description: Marked DISPATCHED
 
-  /api/v1/transfers/{id}/receive:
-    patch:
+  /api/v1/collaboration/transfers/{transferId}/receive:
+    post:
       tags:
-        - Collaboration (Planned)
-      summary: '[PLANNED] Confirm receipt and credit stock to requesting pharmacy'
+        - Collaboration (Operational)
+      summary: '[OPERATIONAL] Confirm receipt, settle reservations, and record discrepancies'
       security:
         - BearerAuth: []
       parameters:
-        - name: id
+        - name: transferId
           in: path
           required: true
           schema:
@@ -491,59 +511,25 @@ paths:
         '200':
           description: Marked RECEIVED
 
-  /api/v1/transfers/{id}/cancel:
-    patch:
+  /api/v1/collaboration/transfers/{transferId}/cancel:
+    post:
       tags:
-        - Collaboration (Planned)
-      summary: '[PLANNED] Cancel a transfer according to state-machine authorization rules'
-      description: >
-        Permitted from REQUESTED (requesting_pharmacy or network_admin), APPROVED
-        (requesting_pharmacy, fulfilling_pharmacy, or network_admin — releases reserved stock),
-        or DISPATCHED (fulfilling_pharmacy or network_admin with mandatory audit reason).
-        Rejected for terminal states (REJECTED, RECEIVED, CANCELLED) with 409 CONFLICT.
+        - Collaboration (Operational)
+      summary: '[OPERATIONAL] Cancel REQUESTED or APPROVED transfer and release reserved stock'
       security:
         - BearerAuth: []
       parameters:
-        - name: id
+        - name: transferId
           in: path
           required: true
           schema:
             type: string
             format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [reason]
-              properties:
-                reason:
-                  type: string
-                  minLength: 5
       responses:
         '200':
           description: Marked CANCELLED
         '409':
-          description: Invalid state transition (INVALID_STATE_TRANSITION)
-
-  /api/v1/transfers/{id}/history:
-    get:
-      tags:
-        - Collaboration (Planned)
-      summary: '[PLANNED] Retrieve immutable audit trail for a transfer'
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Chronological transfer events
+          description: INVALID_STATE_TRANSITION (e.g., DISPATCHED cannot be cancelled)
 
   # ============================================================================
   # DEMAND & AI INTELLIGENCE (PLANNED)

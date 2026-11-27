@@ -282,12 +282,7 @@ export const PERMITTED_TRANSFER_TRANSITIONS: Record<
     {
       nextStatus: 'RECEIVED',
       allowedActors: ['requesting_pharmacy'],
-      stockEffect: 'Credits quantityApproved to quantityAvailable at requesting pharmacy (Terminal state).',
-    },
-    {
-      nextStatus: 'CANCELLED',
-      allowedActors: ['fulfilling_pharmacy', 'network_admin'],
-      stockEffect: 'In-transit cancellation (damaged/recalled); requires mandatory audit reason and manual stock reconciliation (Terminal state).',
+      stockEffect: 'Settles reserved stock at supplying pharmacy and credits receivedQuantity to requesting pharmacy (Terminal state).',
     },
   ],
   REJECTED: [],
