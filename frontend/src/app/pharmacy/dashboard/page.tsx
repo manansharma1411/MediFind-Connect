@@ -1,17 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Package,
-  CheckCircle2,
   AlertTriangle,
   XCircle,
+  Clock,
+  PlusCircle,
+  SlidersHorizontal,
+  Bell,
   ArrowRight,
-  GitCompareArrows,
-  ShieldAlert,
 } from "lucide-react";
-import { PortalShell } from "@/components/layout/PortalShell";
+import { PharmacyPortalLayout } from "@/components/layout/PharmacyPortalLayout";
 import { PageHeader, SectionHeader } from "@/components/layout/PageHeader";
 import {
   Card,
@@ -27,188 +28,171 @@ import {
   LoadingSkeleton,
 } from "@/components/ui/States";
 import { DemoNoticeBanner } from "@/components/shared/DemoNoticeBanner";
-import {
-  SAMPLE_INVENTORY_ROWS,
-  SAMPLE_RECENT_ACTIVITY,
-} from "@/mock-data/inventory";
+import { usePharmacyAuth } from "@/context/PharmacyAuthContext";
+import { getPharmacyDashboard } from "@/services/pharmacyService";
+import type { PharmacyDashboardData } from "@/types/pharmacy";
+import type { ApiError } from "@/types/api";
 import { cn } from "@/lib/cn";
 
-type PreviewMode = "sample" | "loading" | "empty" | "error" | "permission";
-
 export default function PharmacyDashboardPage() {
-  const [previewMode, setPreviewMode] = useState<PreviewMode>("sample");
+  const { session, logout } = usePharmacyAuth();
+  const [data, setData] = useState<PharmacyDashboardData | null>(null);
+  const [source, setSource] = useState<"live" | "preview" | "unavailable">(
+    "unavailable"
+  );
+  const [notice, setNotice] = useState<string | undefined>();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const totalCount = SAMPLE_INVENTORY_ROWS.length;
-  const availableCount = SAMPLE_INVENTORY_ROWS.filter(
-    (r) => r.availability === "in_stock"
-  ).length;
-  const lowStockCount = SAMPLE_INVENTORY_ROWS.filter(
-    (r) => r.availability === "low_stock"
-  ).length;
-  const outOfStockCount = SAMPLE_INVENTORY_ROWS.filter(
-    (r) => r.availability === "out_of_stock"
-  ).length;
+  useEffect(() => {
+    if (!session) return;
+    const controller = new AbortController();
 
-  const kpis = [
-    {
-      label: "Total Listed Medicines",
-      value: totalCount,
-      icon: <Package className="w-5 h-5 text-teal-600" />,
-      tone: "bg-teal-50 border-teal-100",
-    },
-    {
-      label: "Available Stock",
-      value: availableCount,
-      icon: <CheckCircle2 className="w-5 h-5 text-emerald-600" />,
-      tone: "bg-emerald-50 border-emerald-100",
-    },
-    {
-      label: "Low-Stock Items",
-      value: lowStockCount,
-      icon: <AlertTriangle className="w-5 h-5 text-amber-600" />,
-      tone: "bg-amber-50 border-amber-100",
-    },
-    {
-      label: "Out-of-Stock Items",
-      value: outOfStockCount,
-      icon: <XCircle className="w-5 h-5 text-rose-600" />,
-      tone: "bg-rose-50 border-rose-100",
-    },
-  ];
+    (async () => {
+      try {
+        const res = await getPharmacyDashboard(session, controller.signal);
+        if (controller.signal.aborted) return;
+        setData(res.data);
+        setSource(res.source);
+        setNotice(res.notice);
+        setError(null);
+      } catch (err) {
+        const apiErr = err as Partial<ApiError>;
+        if (apiErr.code === "REQUEST_CANCELLED") return;
+        if (apiErr.status === 401) {
+          logout();
+          return;
+        }
+        setError(apiErr.message || "Failed to load pharmacy dashboard.");
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [session, logout]);
+
+  const totalDist = data
+    ? Math.max(
+        1,
+        data.statusDistribution.inStock +
+          data.statusDistribution.lowStock +
+          data.statusDistribution.outOfStock +
+          data.statusDistribution.expired
+      )
+    : 1;
 
   return (
-    <PortalShell>
+    <PharmacyPortalLayout>
       <PageHeader
         breadcrumbs={[
           { label: "Home", href: "/" },
-          { label: "Pharmacy Portal" },
-          { label: "Dashboard" },
+          { label: "Pharmacy Portal", href: "/pharmacy/dashboard" },
+          { label: "Overview" },
         ]}
-        title="Pharmacy Operations Dashboard"
-        description="Overview of store inventory health, recent stock updates, and quick access to inter-pharmacy collaboration."
-        badge={<Badge variant="neutral">Sample Layout</Badge>}
+        title="Pharmacy Operations Overview"
+        description="Real-time inventory health, low-stock and expiry warnings, and quick stock actions."
+        badge={
+          source === "live" ? (
+            <Badge variant="success" dot>
+              Live API
+            </Badge>
+          ) : source === "preview" ? (
+            <Badge variant="warning" dot>
+              UI Preview Data
+            </Badge>
+          ) : (
+            <Badge variant="neutral">Awaiting Backend API</Badge>
+          )
+        }
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href="/pharmacy/inventory"
+              href="/pharmacy/inventory/add"
               className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors"
             >
-              <Package className="w-4 h-4" />
-              <span>Manage Inventory</span>
+              <PlusCircle className="w-4 h-4" />
+              <span>Add Medicine</span>
             </Link>
             <Link
-              href="/collaboration"
+              href="/pharmacy/inventory/adjust"
               className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-white text-slate-700 border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-colors"
             >
-              <GitCompareArrows className="w-4 h-4 text-teal-600" />
-              <span>Collaboration</span>
+              <SlidersHorizontal className="w-4 h-4 text-teal-600" />
+              <span>Adjust Stock</span>
             </Link>
           </div>
         }
       />
 
-      <DemoNoticeBanner
-        title="Sample Layout Preview"
-        description="Metrics and activity items below come from isolated sample data (src/mock-data) to illustrate the dashboard layout. Real operational counts will appear after backend integration."
-      />
-
-      {/* State Switcher for UI Verification */}
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-semibold text-slate-500">
-          Inspect UI State:
-        </span>
-        {(
-          [
-            { id: "sample", label: "Sample Layout" },
-            { id: "loading", label: "Loading" },
-            { id: "empty", label: "Empty" },
-            { id: "error", label: "Error" },
-            { id: "permission", label: "Permission Required" },
-          ] as const
-        ).map((mode) => (
-          <button
-            key={mode.id}
-            type="button"
-            onClick={() => setPreviewMode(mode.id)}
-            className={cn(
-              "px-3 py-1.5 rounded-lg font-semibold border transition-colors cursor-pointer",
-              previewMode === mode.id
-                ? "bg-slate-900 text-white border-slate-900"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-            )}
-          >
-            {mode.label}
-          </button>
-        ))}
-      </div>
-
-      {previewMode === "loading" && <LoadingSkeleton rows={4} />}
-
-      {previewMode === "empty" && (
-        <EmptyState
-          title="No pharmacy inventory recorded yet"
-          description="Add your first medicine SKU to start tracking stock levels and receiving network transfer requests."
-          actionLabel="Go to Inventory"
-          onAction={() => setPreviewMode("sample")}
+      {notice && (
+        <DemoNoticeBanner
+          title={source === "preview" ? "Preview Mode" : "Backend Dependency"}
+          description={notice}
         />
       )}
 
-      {previewMode === "error" && (
+      {isLoading ? (
+        <LoadingSkeleton rows={5} />
+      ) : error ? (
         <ErrorState
-          title="Unable to load pharmacy metrics"
-          description="The backend dashboard endpoint did not respond. Please check your connection or retry."
-          actionLabel="Retry View"
-          onAction={() => setPreviewMode("sample")}
+          title="Unable to load dashboard"
+          description={error}
         />
-      )}
-
-      {previewMode === "permission" && (
-        <Card className="border-amber-200 bg-amber-50/40">
-          <CardContent className="p-8 flex flex-col items-center text-center space-y-3">
-            <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-              <ShieldAlert className="w-5 h-5" />
-            </div>
-            <h3 className="text-base font-bold text-slate-900">
-              Pharmacy Staff Authorization Required
-            </h3>
-            <p className="text-sm text-slate-600 max-w-md">
-              Sign in with an approved pharmacy manager account to view live
-              store metrics and modify inventory.
-            </p>
-            <Link
-              href="/pharmacy/login"
-              className="inline-flex items-center gap-2 h-10 px-5 rounded-xl bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors"
-            >
-              <span>Go to Partner Login</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </CardContent>
-        </Card>
-      )}
-
-      {previewMode === "sample" && (
+      ) : !data ? (
+        <EmptyState
+          title="Dashboard data unavailable"
+          description="Connect Person B's GET /api/v1/pharmacies/:id/dashboard endpoint to view live pharmacy KPIs."
+        />
+      ) : (
         <div className="space-y-6">
-          {/* KPI Grid */}
+          {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            {kpis.map((kpi) => (
-              <Card key={kpi.label}>
+            {[
+              {
+                label: "Total Inventory Items",
+                value: data.totalItems,
+                icon: <Package className="w-5 h-5 text-teal-600" />,
+                tone: "bg-teal-50 border-teal-100",
+              },
+              {
+                label: "Low-Stock Medicines",
+                value: data.lowStockCount,
+                icon: <AlertTriangle className="w-5 h-5 text-amber-600" />,
+                tone: "bg-amber-50 border-amber-100",
+              },
+              {
+                label: "Out-of-Stock Medicines",
+                value: data.outOfStockCount,
+                icon: <XCircle className="w-5 h-5 text-rose-600" />,
+                tone: "bg-rose-50 border-rose-100",
+              },
+              {
+                label: "Expiring / Expired",
+                value: data.expiringCount,
+                icon: <Clock className="w-5 h-5 text-sky-600" />,
+                tone: "bg-sky-50 border-sky-100",
+              },
+            ].map((card) => (
+              <Card key={card.label}>
                 <CardContent className="p-5 flex items-center justify-between gap-4">
-                  <div className="space-y-1">
+                  <div>
                     <p className="text-xs font-semibold text-slate-500">
-                      {kpi.label}
+                      {card.label}
                     </p>
-                    <p className="text-2xl font-extrabold text-slate-900">
-                      {kpi.value}
+                    <p className="text-2xl font-extrabold text-slate-900 mt-1">
+                      {card.value}
                     </p>
-                    <p className="text-[11px] text-slate-400">Sample count</p>
                   </div>
                   <div
                     className={cn(
                       "w-11 h-11 rounded-xl border flex items-center justify-center shrink-0",
-                      kpi.tone
+                      card.tone
                     )}
                   >
-                    {kpi.icon}
+                    {card.icon}
                   </div>
                 </CardContent>
               </Card>
@@ -216,83 +200,205 @@ export default function PharmacyDashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Inventory Summary Chart (CSS-based, zero extra dependencies) */}
-            <Card className="lg:col-span-7">
+            {/* Inventory Status Distribution */}
+            <Card className="lg:col-span-6">
               <CardHeader>
                 <SectionHeader
-                  title="Inventory Stock Distribution (Sample)"
-                  description="Visual breakdown of sample catalog items by availability state."
+                  title="Inventory Status Distribution"
+                  description="Breakdown across stock and expiry states"
                 />
               </CardHeader>
               <CardContent className="space-y-4">
                 {[
                   {
                     label: "In Stock",
-                    count: availableCount,
+                    count: data.statusDistribution.inStock,
                     color: "bg-emerald-500",
-                    pct: Math.round((availableCount / totalCount) * 100),
                   },
                   {
                     label: "Low Stock",
-                    count: lowStockCount,
+                    count: data.statusDistribution.lowStock,
                     color: "bg-amber-500",
-                    pct: Math.round((lowStockCount / totalCount) * 100),
                   },
                   {
                     label: "Out of Stock",
-                    count: outOfStockCount,
+                    count: data.statusDistribution.outOfStock,
                     color: "bg-rose-500",
-                    pct: Math.round((outOfStockCount / totalCount) * 100),
                   },
-                ].map((bar) => (
-                  <div key={bar.label} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span className="text-slate-700">{bar.label}</span>
-                      <span className="text-slate-500">
-                        {bar.count} SKUs ({bar.pct}%)
-                      </span>
+                  {
+                    label: "Expired (Not for Sale)",
+                    count: data.statusDistribution.expired,
+                    color: "bg-slate-600",
+                  },
+                ].map((row) => {
+                  const pct = Math.round((row.count / totalDist) * 100);
+                  return (
+                    <div key={row.label} className="space-y-1.5">
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-slate-700">{row.label}</span>
+                        <span className="text-slate-500">
+                          {row.count} ({pct}%)
+                        </span>
+                      </div>
+                      <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          className={cn("h-full rounded-full", row.color)}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
-                      <div
-                        className={cn("h-full rounded-full", bar.color)}
-                        style={{ width: `${bar.pct}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
 
-            {/* Recent Activity */}
-            <Card className="lg:col-span-5">
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Recent Inventory Activity
-                </CardTitle>
-                <CardDescription>Sample audit feed</CardDescription>
+            {/* Recent Inventory Activity */}
+            <Card className="lg:col-span-6">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">
+                    Recent Inventory Activity
+                  </CardTitle>
+                  <CardDescription>Latest stock movements</CardDescription>
+                </div>
+                <Link
+                  href="/pharmacy/history"
+                  className="text-xs font-semibold text-teal-700 hover:text-teal-800 inline-flex items-center gap-1"
+                >
+                  <span>Full History</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
               </CardHeader>
               <CardContent className="space-y-3">
-                {SAMPLE_RECENT_ACTIVITY.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-0.5"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-bold text-slate-900">
-                        {item.action}
-                      </p>
-                      <span className="text-[11px] text-slate-400">
-                        {item.time}
+                {data.recentActivity.length === 0 ? (
+                  <p className="text-xs text-slate-500">
+                    No recent inventory movements recorded.
+                  </p>
+                ) : (
+                  data.recentActivity.map((act) => (
+                    <div
+                      key={act.id}
+                      className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-900 truncate">
+                          {act.medicineName}
+                        </p>
+                        <p className="text-slate-500">
+                          {act.reason.replace(/_/g, " ")} • {act.actorName}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          "font-mono font-bold shrink-0",
+                          act.quantityChanged >= 0
+                            ? "text-emerald-700"
+                            : "text-rose-700"
+                        )}
+                      >
+                        {act.quantityChanged >= 0
+                          ? `+${act.quantityChanged}`
+                          : act.quantityChanged}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600">{item.detail}</p>
-                  </div>
-                ))}
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Low-Stock & Expiry Warnings */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Low-Stock Medicines</CardTitle>
+                  <CardDescription>
+                    Items at or below minimum threshold
+                  </CardDescription>
+                </div>
+                <Link
+                  href="/pharmacy/alerts"
+                  className="text-xs font-semibold text-teal-700 hover:text-teal-800 inline-flex items-center gap-1"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>All Alerts</span>
+                </Link>
+              </CardHeader>
+              <CardContent className="space-y-2.5">
+                {data.lowStockItems.length === 0 ? (
+                  <p className="text-xs text-slate-500">No low-stock items.</p>
+                ) : (
+                  data.lowStockItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-3 rounded-xl bg-amber-50/60 border border-amber-200/80 flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div>
+                        <p className="font-bold text-slate-900">
+                          {item.brandName} ({item.medicineName})
+                        </p>
+                        <p className="text-amber-900">
+                          {item.quantityAvailable} left • Threshold:{" "}
+                          {item.reorderThreshold}
+                        </p>
+                      </div>
+                      <Link
+                        href={`/pharmacy/inventory/adjust?itemId=${encodeURIComponent(
+                          item.id
+                        )}`}
+                        className="font-semibold text-teal-700 hover:text-teal-800 shrink-0"
+                      >
+                        Restock →
+                      </Link>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Expiry Warnings</CardTitle>
+                <CardDescription>
+                  Near-expiry and expired batches
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2.5">
+                {data.expiringItems.length === 0 ? (
+                  <p className="text-xs text-slate-500">
+                    No expiring batches detected.
+                  </p>
+                ) : (
+                  data.expiringItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-3 rounded-xl bg-rose-50/50 border border-rose-200/80 flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div>
+                        <p className="font-bold text-slate-900">
+                          {item.brandName} • Batch {item.batchNumber ?? "N/A"}
+                        </p>
+                        <p className="text-rose-900">
+                          Expiry: <strong>{item.expiryDate}</strong>
+                        </p>
+                      </div>
+                      <Link
+                        href={`/pharmacy/inventory?highlight=${encodeURIComponent(
+                          item.id
+                        )}`}
+                        className="font-semibold text-teal-700 hover:text-teal-800 shrink-0"
+                      >
+                        Inspect →
+                      </Link>
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>
         </div>
       )}
-    </PortalShell>
+    </PharmacyPortalLayout>
   );
 }
