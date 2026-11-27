@@ -122,7 +122,7 @@ export default function PharmaciesPage() {
         }
       />
 
-      {source === "demo" && (
+      {!error && source === "demo" && (
         <DemoNoticeBanner
           title="Demo Directory Active"
           description="Backend endpoint GET /api/v1/pharmacies is planned. Showing isolated sample pharmacy records and OpenStreetMap coordinates."

@@ -216,6 +216,13 @@ export async function getMedicinePrices(
   }
 }
 
+/**
+ * Public GET /api/v1/pharmacies is marked [PLANNED] in docs/api-contracts/openapi.yaml
+ * (and currently rejects unauthenticated requests with 401 on the deployed backend).
+ * Flip to true once Person B deploys the public unauthenticated directory endpoint.
+ */
+const PUBLIC_PHARMACY_DIRECTORY_LIVE = false;
+
 export async function listPublicPharmacies(
   params: {
     area?: string;
@@ -237,49 +244,58 @@ export async function listPublicPharmacies(
   qs.set("page", String(page));
   qs.set("limit", String(limit));
 
-  try {
-    const res = await apiClient.get<ApiResponse<PaginatedData<PublicPharmacy>>>(
-      `/api/v1/pharmacies?${qs.toString()}`,
-      { signal }
-    );
-    return {
-      items: res.data.items,
-      pagination: res.data.pagination,
-      source: "live",
-    };
-  } catch (err) {
-    if (isCancelledError(err) || !isPlannedEndpointUnavailable(err)) {
-      throw err;
+  if (PUBLIC_PHARMACY_DIRECTORY_LIVE) {
+    try {
+      const res = await apiClient.get<ApiResponse<PaginatedData<PublicPharmacy>>>(
+        `/api/v1/pharmacies?${qs.toString()}`,
+        { signal }
+      );
+      return {
+        items: res.data.items,
+        pagination: res.data.pagination,
+        source: "live",
+      };
+    } catch (err) {
+      if (isCancelledError(err) || !isPlannedEndpointUnavailable(err)) {
+        throw err;
+      }
     }
-
-    const filtered = DEMO_PHARMACIES.filter((p) => {
-      if (area && area !== "all" && p.location.area !== area) return false;
-      if (is24x7 && !p.is24x7) return false;
-      return true;
-    }).map((p) => ({
-      ...p,
-      location: {
-        ...p.location,
-        distanceKm: coords
-          ? calculateDistanceKm(
-              coords.lat,
-              coords.lng,
-              p.location.lat,
-              p.location.lng
-            )
-          : undefined,
-      },
-    }));
-
-    return {
-      items: filtered,
-      pagination: {
-        page: 1,
-        limit,
-        total: filtered.length,
-        totalPages: 1,
-      },
-      source: "demo",
+  } else if (signal?.aborted) {
+    const abortErr: ApiError = {
+      status: 0,
+      code: "REQUEST_CANCELLED",
+      message: "Request was cancelled.",
     };
+    throw abortErr;
   }
+
+  const filtered = DEMO_PHARMACIES.filter((p) => {
+    if (area && area !== "all" && p.location.area !== area) return false;
+    if (is24x7 && !p.is24x7) return false;
+    return true;
+  }).map((p) => ({
+    ...p,
+    location: {
+      ...p.location,
+      distanceKm: coords
+        ? calculateDistanceKm(
+            coords.lat,
+            coords.lng,
+            p.location.lat,
+            p.location.lng
+          )
+        : undefined,
+    },
+  }));
+
+  return {
+    items: filtered,
+    pagination: {
+      page: 1,
+      limit,
+      total: filtered.length,
+      totalPages: 1,
+    },
+    source: "demo",
+  };
 }

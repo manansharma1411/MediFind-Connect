@@ -227,14 +227,27 @@ test("calculateDistanceKm, mapStockStatusToBadge, and stale timestamp helpers wo
   assert.equal(formatLastUpdated(freshIso, now), "10 mins ago");
 });
 
-test("listPublicPharmacies filters by 24x7 and computes distance when coords provided", async () => {
-  const res = await listPublicPharmacies({
-    is24x7: true,
-    coords: { lat: 23.2323, lng: 77.4332 },
-  });
-  assert.ok(res.items.length >= 1);
-  assert.ok(res.items.every((p) => p.is24x7));
-  assert.equal(typeof res.items[0]?.location.distanceKm, "number");
+test("listPublicPharmacies filters by 24x7 and computes distance without making a failing live request", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return new Response(null, { status: 401 });
+  };
+
+  try {
+    const res = await listPublicPharmacies({
+      is24x7: true,
+      coords: { lat: 23.2323, lng: 77.4332 },
+    });
+    assert.equal(fetchCalls, 0);
+    assert.equal(res.source, "demo");
+    assert.ok(res.items.length >= 1);
+    assert.ok(res.items.every((p) => p.is24x7));
+    assert.equal(typeof res.items[0]?.location.distanceKm, "number");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("apiClient handles aborted/cancelled requests and 500 error responses cleanly", async () => {
