@@ -104,11 +104,15 @@ List endpoints accept `?page=1&limit=20` (max `limit=100`) and return:
   * `GET / PUT /api/v1/pharmacies/me/inventory/:itemId` — View or update batch metadata.
   * `POST /api/v1/pharmacies/me/inventory/:itemId/adjust` — Atomic stock adjustment with audit history.
   * `GET /api/v1/pharmacies/me/inventory/:itemId/history` — Item stock movement ledger.
+* **Pharmacy-to-Pharmacy Collaboration (Requires `Authorization: Bearer <Supabase_JWT>`):**
+  * `GET /api/v1/collaboration/stock` — Discover eligible transfer stock (excludes expired, controlled, and private counts).
+  * `GET / POST /api/v1/collaboration/transfers` — List participant transfers or create a new transfer request.
+  * `GET /api/v1/collaboration/transfers/:transferId` — View transfer details and immutable audit history.
+  * `POST /api/v1/collaboration/transfers/:transferId/{approve|reject|dispatch|receive|cancel}` — Atomic state transitions (supports `Idempotency-Key` header).
 
 ### Planned for Upcoming Phases (NOT YET IMPLEMENTED)
 Do **not** call these in production UI without fallback/mocking until Person B marks them operational:
 * **Public Pharmacy Directory:** `GET /api/v1/pharmacies`, `GET /api/v1/pharmacies/:id`
-* **Collaboration:** `GET/POST /api/v1/transfers`, `PATCH /api/v1/transfers/:id/{approve|reject|dispatch|receive|cancel}`, `GET /api/v1/transfers/:id/history`
 * **Intelligence:** `GET /api/v1/intelligence/{demand-summary|shortage-radar|restock-recommendations}`
 
 ---
@@ -123,7 +127,7 @@ Do **not** call these in production UI without fallback/mocking until Person B m
 | **Pharmacy Login / Reg** | `/pharmacy/login`, `/register` | `POST /api/v1/auth/login`, `POST /api/v1/pharmacies/register` | Public | Planned |
 | **Pharmacy Dashboard** | `/pharmacy/dashboard` | `GET /api/v1/pharmacies/:id/dashboard` (low stock counts, pending transfers, revenue) | `Bearer` (`pharmacy_staff` of `:id`) | Planned |
 | **Inventory Management** | `/pharmacy/inventory` | `GET /api/v1/pharmacies/:id/inventory`, `PATCH /api/v1/pharmacies/:id/inventory` | `Bearer` (`pharmacy_staff` of `:id`) | Planned |
-| **Pharmacy Collaboration** | `/collaboration` | `GET/POST /api/v1/transfers`, `PATCH /api/v1/transfers/:id/{approve\|reject\|dispatch\|receive\|cancel}`, `.../history` | `Bearer` (`pharmacy_staff` participant) | Planned |
+| **Pharmacy Collaboration** | `/collaboration` | `GET /api/v1/collaboration/stock`, `GET/POST /api/v1/collaboration/transfers`, `POST /api/v1/collaboration/transfers/:id/{approve\|reject\|dispatch\|receive\|cancel}` | `Bearer` (authorized pharmacy participant) | **Available Now** |
 | **Intelligence Overview** | `/intelligence` | `GET /api/v1/intelligence/demand-summary` | `Bearer` (`pharmacy_staff` / `network_admin`) | Planned |
 | **Shortage Radar** | `/intelligence/shortage-radar` | `GET /api/v1/intelligence/shortage-radar?area=...` | `Bearer` (`pharmacy_staff` / `network_admin`) | Planned |
 | **Smart Restock** | `/intelligence/smart-restock` | `GET /api/v1/intelligence/restock-recommendations?pharmacyId=...` | `Bearer` (`pharmacy_staff` of `pharmacyId`) | Planned |

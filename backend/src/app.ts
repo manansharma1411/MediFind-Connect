@@ -4,13 +4,16 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import healthRoutes from './routes/health.js';
 import medicineRoutes, { createMedicineRouter } from './routes/medicines.js';
 import pharmacyRoutes, { createPharmacyRouter } from './routes/pharmacies.js';
+import collaborationRoutes, { createCollaborationRouter } from './routes/collaboration.js';
 import { MedicineService } from './services/medicineService.js';
 import { PharmacyService } from './services/pharmacyService.js';
+import { CollaborationService } from './services/collaborationService.js';
 import { TokenVerifier } from './middleware/auth.js';
 
 export function createApp(options?: {
   medicineService?: MedicineService;
   pharmacyService?: PharmacyService;
+  collaborationService?: CollaborationService;
   tokenVerifier?: TokenVerifier;
 }): Express {
   const app = express();
@@ -47,6 +50,16 @@ export function createApp(options?: {
         })
       : pharmacyRoutes;
   app.use('/api/v1/pharmacies', v1Pharmacies);
+
+  // Mount v1 Pharmacy Collaboration routes (authenticated & participant-isolated)
+  const v1Collaboration =
+    options?.collaborationService || options?.tokenVerifier
+      ? createCollaborationRouter({
+          service: options.collaborationService,
+          tokenVerifier: options.tokenVerifier,
+        })
+      : collaborationRoutes;
+  app.use('/api/v1/collaboration', v1Collaboration);
 
   // Fallback for unmatched endpoints
   app.use(notFoundHandler);
