@@ -316,9 +316,28 @@ test.after(() => {
   });
 });
 
-test('Auth: rejects missing or invalid Bearer tokens with 401 UNAUTHORIZED', async () => {
+test('Auth & Public Isolation: GET /api/v1/pharmacies does not trigger 401, while protected routes enforce 401/403', async () => {
+  // Public directory (planned) must NOT return 401 Missing Bearer token
+  const publicDir = await fetch(`${baseUrl}/api/v1/pharmacies`);
+  assert.equal(publicDir.status, 404);
+  const publicBody = await publicDir.json();
+  assert.equal(publicBody.error.code, 'RESOURCE_NOT_FOUND');
+
+  // Protected registration requires Bearer token
+  const unauthPost = await fetch(`${baseUrl}/api/v1/pharmacies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  assert.equal(unauthPost.status, 401);
+
   const noAuth = await fetch(`${baseUrl}/api/v1/pharmacies/me`);
   assert.equal(noAuth.status, 401);
+
+  const malformedAuth = await fetch(`${baseUrl}/api/v1/pharmacies/me`, {
+    headers: { Authorization: 'InvalidFormat' },
+  });
+  assert.equal(malformedAuth.status, 401);
 
   const badAuth = await fetch(`${baseUrl}/api/v1/pharmacies/me`, {
     headers: { Authorization: 'Bearer invalid-jwt' },

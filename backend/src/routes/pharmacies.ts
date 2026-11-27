@@ -16,23 +16,23 @@ export function createPharmacyRouter(options?: {
     ? createRequireAuth(options.tokenVerifier)
     : requireAuth;
 
-  // All /api/v1/pharmacies/* management routes require valid Supabase Auth JWT
-  router.use(auth);
+  // NOTE: GET /api/v1/pharmacies (public pharmacy directory) is still [PLANNED]
+  // and must NOT be intercepted by Bearer-token authentication middleware.
+  // Auth is applied strictly to registration (POST /) and protected /me/* routes.
 
-  // Registration
-  router.post('/', controller.registerPharmacy);
+  // Registration (authenticated user only)
+  router.post('/', auth, controller.registerPharmacy);
 
-  // Authorized Pharmacy Profile & Operating Hours
+  // Authorized Pharmacy Profile, Operating Hours, Dashboard, Alerts, & Inventory
+  router.use('/me', auth);
   router.get('/me', controller.getMyProfile);
   router.put('/me', controller.updateMyProfile);
   router.get('/me/operating-hours', controller.getMyOperatingHours);
   router.put('/me/operating-hours', controller.updateMyOperatingHours);
 
-  // Dashboard & Alerts
   router.get('/me/dashboard', controller.getDashboard);
   router.get('/me/alerts', controller.getAlerts);
 
-  // Inventory Management & Atomic Adjustments
   router.get('/me/inventory', controller.listInventory);
   router.post('/me/inventory', controller.addInventoryItem);
   router.get('/me/inventory/:itemId', controller.getInventoryItem);
@@ -41,7 +41,7 @@ export function createPharmacyRouter(options?: {
   router.get('/me/inventory/:itemId/history', controller.getInventoryItemHistory);
 
   // Block arbitrary :id/inventory manipulation (must use /me/inventory)
-  router.get('/:id/inventory', guardPrivateInventory);
+  router.get('/:id/inventory', auth, guardPrivateInventory);
 
   return router;
 }
