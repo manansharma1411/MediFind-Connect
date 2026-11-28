@@ -185,8 +185,17 @@ const mockPharmRepo = {
       tier: found.tier as 'standard',
       isDemo: false,
       location: found.location
-        ? { ...found.location, lat: 23.2313, lng: 77.4326 }
-        : null,
+        ? { ...found.location, lat: 23.2313, lng: 77.4326, isLocationVerified: false }
+        : {
+            address: 'N/A',
+            area: 'MP Nagar',
+            city: 'Bhopal',
+            state: 'MP',
+            pincode: '462011',
+            lat: 23.2313,
+            lng: 77.4326,
+            isLocationVerified: false,
+          },
       createdAt: found.createdAt,
       updatedAt: found.updatedAt,
     };
