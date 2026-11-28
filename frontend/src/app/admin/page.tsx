@@ -14,9 +14,10 @@ import {
 } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/States";
-import { DemoNoticeBanner } from "@/components/shared/DemoNoticeBanner";
+import { Toast } from "@/components/ui/Toast";
 import { usePharmacyAuth } from "@/context/PharmacyAuthContext";
 import { listAdminPharmacies } from "@/services/adminVerificationService";
+import { getAdminDataStatusBadge } from "@/lib/adminVerificationUtils";
 import type {
   AdminPharmacyVerificationRecord,
   AdminVerificationSummary,
@@ -69,6 +70,13 @@ export default function SuperAdminOverviewPage() {
     return () => controller.abort();
   }, [session, logout]);
 
+  const statusBadge = getAdminDataStatusBadge({
+    isLoading,
+    error,
+    source,
+    itemCount: recentRegistrations.length,
+  });
+
   return (
     <SuperAdminLayout>
       <PageHeader
@@ -79,19 +87,16 @@ export default function SuperAdminOverviewPage() {
         title="Platform Control Overview"
         description="Centralized MediFind Connect governance across pharmacy verification, users, medicine catalog, and audit history."
         badge={
-          source === "live" ? (
-            <Badge variant="success" dot>
-              Live Admin API
-            </Badge>
-          ) : (
-            <Badge variant="info">Awaiting Admin Backend</Badge>
-          )
+          <Badge variant={statusBadge.variant} dot>
+            {statusBadge.label}
+          </Badge>
         }
       />
 
       {notice && (
-        <DemoNoticeBanner
-          title="Backend Admin APIs Required"
+        <Toast
+          variant="warning"
+          title="API Unavailable"
           description={notice}
         />
       )}

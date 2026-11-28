@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/States";
-import { DemoNoticeBanner } from "@/components/shared/DemoNoticeBanner";
+import { Toast } from "@/components/ui/Toast";
 
 export default function AdminAnalyticsPage() {
   return (
@@ -24,11 +24,12 @@ export default function AdminAnalyticsPage() {
         ]}
         title="Platform Analytics"
         description="Network-wide medicine availability coverage, search volume trends, and regional fulfillment health."
-        badge={<Badge variant="info">Awaiting Backend API</Badge>}
+        badge={<Badge variant="error" dot>API Unavailable</Badge>}
       />
 
-      <DemoNoticeBanner
-        title="Admin Platform Analytics API Pending"
+      <Toast
+        variant="warning"
+        title="API Unavailable"
         description="Endpoint GET /api/v1/admin/analytics is awaiting Person B implementation. No fabricated metrics are displayed."
       />
 

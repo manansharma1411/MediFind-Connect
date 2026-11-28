@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/States";
-import { DemoNoticeBanner } from "@/components/shared/DemoNoticeBanner";
+import { Toast } from "@/components/ui/Toast";
 
 export default function AdminUsersPage() {
   return (
@@ -24,12 +24,13 @@ export default function AdminUsersPage() {
         ]}
         title="User & Role Management"
         description="Manage platform administrators, pharmacy owners, and account access states."
-        badge={<Badge variant="info">Awaiting Backend API</Badge>}
+        badge={<Badge variant="error" dot>API Unavailable</Badge>}
       />
 
-      <DemoNoticeBanner
-        title="Admin User Management API Pending"
-        description="Endpoint GET /api/v1/admin/users and role-claim verification in backend auth middleware are awaiting Person B implementation."
+      <Toast
+        variant="warning"
+        title="API Unavailable"
+        description="Endpoint GET /api/v1/admin/users is awaiting Person B implementation."
       />
 
       <Card>

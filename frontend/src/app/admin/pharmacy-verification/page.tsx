@@ -29,7 +29,6 @@ import {
   ErrorState,
   LoadingSkeleton,
 } from "@/components/ui/States";
-import { DemoNoticeBanner } from "@/components/shared/DemoNoticeBanner";
 import { usePharmacyAuth } from "@/context/PharmacyAuthContext";
 import {
   getAdminPharmacyVerificationDetails,
@@ -38,6 +37,7 @@ import {
 } from "@/services/adminVerificationService";
 import {
   filterVerificationRecords,
+  getAdminDataStatusBadge,
   getVerificationStatusMeta,
   paginateVerificationRecords,
   validateRejectionReason,
@@ -235,6 +235,13 @@ function AdminPharmacyVerificationContent() {
     }
   };
 
+  const statusBadge = getAdminDataStatusBadge({
+    isLoading,
+    error,
+    source,
+    itemCount: records.length,
+  });
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -245,19 +252,16 @@ function AdminPharmacyVerificationContent() {
         title="Pharmacy Verification Dashboard"
         description="Review submitted pharmacy registrations, inspect drug licence credentials, and approve or reject partner applications."
         badge={
-          source === "live" ? (
-            <Badge variant="success" dot>
-              Live Admin API
-            </Badge>
-          ) : (
-            <Badge variant="info">Awaiting Admin Endpoints</Badge>
-          )
+          <Badge variant={statusBadge.variant} dot>
+            {statusBadge.label}
+          </Badge>
         }
       />
 
       {notice && (
-        <DemoNoticeBanner
-          title="Admin Verification Backend Status"
+        <Toast
+          variant="warning"
+          title="API Unavailable"
           description={notice}
         />
       )}
@@ -348,21 +352,21 @@ function AdminPharmacyVerificationContent() {
 
       {isLoading ? (
         <LoadingSkeleton rows={5} />
-      ) : error ? (
+      ) : error || source === "unavailable" ? (
         <ErrorState
-          title="Unable to load verification queue"
-          description={error}
+          title="API Unavailable"
+          description={
+            error ??
+            notice ??
+            "Unable to load pharmacy verification records from the backend."
+          }
           actionLabel="Retry"
           onAction={() => loadDashboard()}
         />
       ) : pageItems.length === 0 ? (
         <EmptyState
-          title="No pharmacy verification records found"
-          description={
-            source === "unavailable"
-              ? "Admin verification endpoints are not yet implemented by Person B."
-              : "No pharmacy applications match the current search or status filter."
-          }
+          title="No Records"
+          description="No pharmacy applications match the current search or status filter."
         />
       ) : (
         <div className="space-y-6">

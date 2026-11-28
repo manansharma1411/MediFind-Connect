@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/States";
-import { DemoNoticeBanner } from "@/components/shared/DemoNoticeBanner";
+import { Toast } from "@/components/ui/Toast";
 
 export default function AdminPharmaciesPage() {
   return (
@@ -24,12 +24,13 @@ export default function AdminPharmaciesPage() {
         ]}
         title="Platform Pharmacy Management"
         description="View, suspend, or audit all registered pharmacies across MediFind Connect."
-        badge={<Badge variant="info">Awaiting Backend API</Badge>}
+        badge={<Badge variant="error" dot>API Unavailable</Badge>}
       />
 
-      <DemoNoticeBanner
-        title="Admin Pharmacy Directory API Pending"
-        description="Endpoint GET /api/v1/admin/pharmacies is awaiting Person B implementation. Use Pharmacy Verification for pending review workflows once backend endpoints are live."
+      <Toast
+        variant="warning"
+        title="API Unavailable"
+        description="Endpoint GET /api/v1/admin/pharmacies is awaiting Person B implementation. Use Pharmacy Verification for pending review workflows."
       />
 
       <Card>

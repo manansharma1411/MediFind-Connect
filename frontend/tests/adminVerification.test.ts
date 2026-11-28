@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   filterVerificationRecords,
+  getAdminDataStatusBadge,
   getVerificationStatusMeta,
   isAuthorizedAdminEmail,
   isAuthorizedAdminSession,
@@ -184,6 +185,45 @@ test("adminVerificationService blocks unauthorized sessions and handles 404/401/
     if (prevApi === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
     else process.env.NEXT_PUBLIC_API_BASE_URL = prevApi;
   }
+});
+
+test("getAdminDataStatusBadge distinguishes Loading, API Unavailable, No Records, and Live Data", () => {
+  assert.equal(
+    getAdminDataStatusBadge({
+      isLoading: true,
+      error: null,
+      source: "unavailable",
+      itemCount: 0,
+    }).label,
+    "Loading"
+  );
+  assert.equal(
+    getAdminDataStatusBadge({
+      isLoading: false,
+      error: "Server error",
+      source: "unavailable",
+      itemCount: 0,
+    }).label,
+    "API Unavailable"
+  );
+  assert.equal(
+    getAdminDataStatusBadge({
+      isLoading: false,
+      error: null,
+      source: "live",
+      itemCount: 0,
+    }).label,
+    "No Records"
+  );
+  assert.equal(
+    getAdminDataStatusBadge({
+      isLoading: false,
+      error: null,
+      source: "live",
+      itemCount: 3,
+    }).label,
+    "Live Data"
+  );
 });
 
 test("isAuthorizedAdminEmail restricts to configured admin email and loginAdmin verifies via Supabase + backend", async () => {
@@ -373,4 +413,43 @@ test("admin verification mappers normalize missing history, null location, and {
     if (prevApi === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
     else process.env.NEXT_PUBLIC_API_BASE_URL = prevApi;
   }
+});
+
+test("getAdminDataStatusBadge distinguishes Loading, API Unavailable, No Records, and Live Data", () => {
+  assert.equal(
+    getAdminDataStatusBadge({
+      isLoading: true,
+      error: null,
+      source: "unavailable",
+      itemCount: 0,
+    }).label,
+    "Loading"
+  );
+  assert.equal(
+    getAdminDataStatusBadge({
+      isLoading: false,
+      error: "Server error",
+      source: "unavailable",
+      itemCount: 0,
+    }).label,
+    "API Unavailable"
+  );
+  assert.equal(
+    getAdminDataStatusBadge({
+      isLoading: false,
+      error: null,
+      source: "live",
+      itemCount: 0,
+    }).label,
+    "No Records"
+  );
+  assert.equal(
+    getAdminDataStatusBadge({
+      isLoading: false,
+      error: null,
+      source: "live",
+      itemCount: 3,
+    }).label,
+    "Live Data"
+  );
 });

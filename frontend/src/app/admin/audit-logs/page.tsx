@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/States";
-import { DemoNoticeBanner } from "@/components/shared/DemoNoticeBanner";
+import { Toast } from "@/components/ui/Toast";
 
 export default function AdminAuditLogsPage() {
   return (
@@ -24,11 +24,12 @@ export default function AdminAuditLogsPage() {
         ]}
         title="Admin Activity & Audit Logs"
         description="Immutable audit trail of pharmacy verification decisions, account suspensions, and catalog changes."
-        badge={<Badge variant="info">Awaiting Backend API</Badge>}
+        badge={<Badge variant="error" dot>API Unavailable</Badge>}
       />
 
-      <DemoNoticeBanner
-        title="Admin Audit Log API Pending"
+      <Toast
+        variant="warning"
+        title="API Unavailable"
         description="Endpoint GET /api/v1/admin/audit-logs is awaiting Person B implementation."
       />
 
