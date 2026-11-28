@@ -117,10 +117,11 @@ class InMemoryAdminVerificationStore implements IAdminVerificationRepository {
     adminUserId: string;
     action: 'APPROVE' | 'REJECT';
     reason?: string;
+    isVerifiedAdmin?: boolean;
   }): Promise<VerifyPharmacyAtomicResult> {
     const p = this.pharmacies.find((x) => x.id === params.pharmacyId);
     if (!p) throw new AppError(404, 'RESOURCE_NOT_FOUND', 'Pharmacy not found');
-    if (p.ownerUserId === params.adminUserId) {
+    if (!params.isVerifiedAdmin && p.ownerUserId === params.adminUserId) {
       throw new AppError(403, 'FORBIDDEN', 'Self-approval forbidden');
     }
 
@@ -300,8 +301,9 @@ test('Admin verification: pending list, authz (401/403), self-approval block, re
   assert.equal(pendingJson.data.items.length, 2);
   assert.equal(pendingJson.data.items[0].licenseNumber, 'MP-BPL-2026-101');
 
-  // 5. Admin cannot approve their own pharmacy -> 403
-  const selfApprove = await fetch(
+  // 5. Verified super_admin who also owns a pharmacy CAN reject/approve via admin endpoint (admin role precedence),
+  //    while a non-admin pharmacy owner CANNOT reject/approve any pharmacy -> 403
+  const adminRejectOwned = await fetch(
     `${baseUrl}/api/v1/admin/pharmacies/${PHARM_OWNED_BY_ADMIN}/verification`,
     {
       method: 'PATCH',
@@ -309,10 +311,45 @@ test('Admin verification: pending list, authz (401/403), self-approval block, re
         Authorization: 'Bearer token-admin',
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        action: 'REJECT',
+        reason: 'Incomplete state license scan on admin-owned test store.',
+      }),
+    }
+  );
+  assert.equal(adminRejectOwned.status, 200);
+  const adminRejectOwnedJson = await adminRejectOwned.json();
+  assert.equal(adminRejectOwnedJson.data.verificationStatus, 'REJECTED');
+  assert.equal(adminRejectOwnedJson.data.isLicensedVerified, false);
+
+  const ownerRejectOther = await fetch(
+    `${baseUrl}/api/v1/admin/pharmacies/${PHARM_OWNED_BY_ADMIN}/verification`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: 'Bearer token-owner',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'REJECT',
+        reason: 'Unauthorized owner attempting rejection',
+      }),
+    }
+  );
+  assert.equal(ownerRejectOther.status, 403);
+
+  const ownerRejectOwn = await fetch(
+    `${baseUrl}/api/v1/admin/pharmacies/${PHARM_ID}/verification`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: 'Bearer token-owner',
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ action: 'APPROVE' }),
     }
   );
-  assert.equal(selfApprove.status, 403);
+  assert.equal(ownerRejectOwn.status, 403);
 
   // 6. Reject without reason -> 400
   const badReject = await fetch(

@@ -8,6 +8,7 @@ import {
   AdminVerificationService,
   adminVerificationService,
 } from '../services/adminVerificationService.js';
+import { isAdministratorUser } from '../middleware/auth.js';
 import { ApiResponse, AppError } from '../types/index.js';
 
 function getAdminUserId(req: Request): string {
@@ -88,7 +89,9 @@ export function createAdminVerificationController(service: AdminVerificationServ
         const adminUserId = getAdminUserId(req);
         const { id } = adminPharmacyIdParamSchema.parse(req.params);
         const body = verifyPharmacyBodySchema.parse(req.body);
-        const data = await service.verifyPharmacy(id, adminUserId, body);
+        const data = await service.verifyPharmacy(id, adminUserId, body, {
+          isVerifiedAdmin: Boolean(req.user && isAdministratorUser(req.user)),
+        });
         const response: ApiResponse<typeof data> = {
           success: true,
           message:
