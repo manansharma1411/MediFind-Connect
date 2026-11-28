@@ -27,8 +27,10 @@ tags:
     description: Authenticated pharmacy profile, operating hours, dashboard, inventory, and alerts endpoints
   - name: Collaboration (Operational)
     description: Authenticated pharmacy-to-pharmacy stock discovery and atomic transfer lifecycle endpoints
+  - name: Demand Intelligence (Operational)
+    description: Privacy-preserving, k-anonymous local demand intelligence and supply indicators
   - name: Intelligence (Planned)
-    description: Privacy-preserving demand, shortage radar, and smart restock
+    description: AI shortage radar and smart restock recommendations
 
 paths:
   # ============================================================================
@@ -532,24 +534,95 @@ paths:
           description: INVALID_STATE_TRANSITION (e.g., DISPATCHED cannot be cancelled)
 
   # ============================================================================
-  # DEMAND & AI INTELLIGENCE (PLANNED)
+  # LOCAL DEMAND INTELLIGENCE (OPERATIONAL)
   # ============================================================================
-  /api/v1/intelligence/demand-summary:
+  /api/v1/intelligence/demand/signals:
+    post:
+      tags:
+        - Demand Intelligence (Operational)
+      summary: '[OPERATIONAL] Record a single privacy-preserving search demand signal (rate-limited, no client counts)'
+      responses:
+        '202':
+          description: Signal accepted or deduplicated within TTL window
+        '429':
+          description: Rate limit exceeded
+
+  /api/v1/intelligence/demand/overview:
     get:
       tags:
-        - Intelligence (Planned)
-      summary: '[PLANNED] Retrieve privacy-preserving regional demand summaries'
+        - Demand Intelligence (Operational)
+      summary: '[OPERATIONAL] Retrieve k-anonymous demand overview and eligible supply for permitted area'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Aggregated demand overview (groups below minThreshold suppressed)
+
+  /api/v1/intelligence/demand/trends:
+    get:
+      tags:
+        - Demand Intelligence (Operational)
+      summary: '[OPERATIONAL] Retrieve day/week aggregated demand trends with pagination'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Paginated demand trends (groups below minThreshold suppressed)
+
+  /api/v1/intelligence/demand/areas:
+    get:
+      tags:
+        - Demand Intelligence (Operational)
+      summary: '[OPERATIONAL] Retrieve coarse area-wise aggregated demand and supply indicators'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Paginated area demand summary (no precise patient locations)
+
+  /api/v1/intelligence/demand/unmet:
+    get:
+      tags:
+        - Demand Intelligence (Operational)
+      summary: '[OPERATIONAL] Retrieve aggregated unmet demand signals (NO_MATCH, NO_ELIGIBLE_NEARBY_STOCK, PARTIAL_AVAILABILITY)'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Paginated unmet demand signals passing k-anonymity threshold
+
+  /api/v1/intelligence/demand/medicines/{medicineId}:
+    get:
+      tags:
+        - Demand Intelligence (Operational)
+      summary: '[OPERATIONAL] Retrieve per-medicine local demand level, trend, supply indicators, and data confidence'
       security:
         - BearerAuth: []
       parameters:
-        - name: area
-          in: query
+        - name: medicineId
+          in: path
+          required: true
           schema:
             type: string
+            format: uuid
       responses:
         '200':
-          description: Aggregated area demand metrics (Zero PII)
+          description: Medicine demand and supply insights
 
+  /api/v1/pharmacies/me/intelligence/demand:
+    get:
+      tags:
+        - Demand Intelligence (Operational)
+      summary: '[OPERATIONAL] Retrieve demand intelligence strictly scoped to the authenticated pharmacy permitted area'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Tenant-isolated pharmacy demand insights
+
+  # ============================================================================
+  # AI INTELLIGENCE (PLANNED)
+  # ============================================================================
   /api/v1/intelligence/shortage-radar:
     get:
       tags:
