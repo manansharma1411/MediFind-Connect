@@ -1,11 +1,13 @@
 import type { ApiError } from "../types/api.ts";
 
 export interface PharmacyRegistrationFormInput {
+  ownerName?: string;
   name: string;
   licenseNumber: string;
   phone: string;
   email: string;
   password: string;
+  confirmPassword?: string;
   address: string;
   area: string;
   city: string;
@@ -15,6 +17,22 @@ export interface PharmacyRegistrationFormInput {
   lng: string;
   tier: "standard" | "hub" | "hospital_attached";
   is24x7: boolean;
+}
+
+export function getPasswordStrength(password: string): {
+  label: "Too short" | "Fair" | "Strong";
+  variant: "warning" | "info" | "success";
+} {
+  if (password.length < 8) {
+    return { label: "Too short", variant: "warning" };
+  }
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasDigitOrSymbol = /[\d\W]/.test(password);
+  if (password.length >= 10 && hasUpper && hasLower && hasDigitOrSymbol) {
+    return { label: "Strong", variant: "success" };
+  }
+  return { label: "Fair", variant: "info" };
 }
 
 export type PharmacyRegistrationFormErrors = Partial<
@@ -86,8 +104,15 @@ export function validatePharmacyRegistrationForm(
   }
 
   if (options.requireAccountCredentials) {
+    if ((input.ownerName ?? "").trim().length < 2) {
+      errors.ownerName =
+        "Owner / authorized person name must be at least 2 characters.";
+    }
     if (input.password.length < 8 || input.password.length > 128) {
       errors.password = "Password must be between 8 and 128 characters.";
+    }
+    if ((input.confirmPassword ?? "") !== input.password) {
+      errors.confirmPassword = "Passwords do not match.";
     }
   }
 
