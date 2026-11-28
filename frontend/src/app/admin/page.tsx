@@ -40,7 +40,11 @@ export default function SuperAdminOverviewPage() {
 
     (async () => {
       try {
-        const res = await listAdminPharmacies(session, {}, controller.signal);
+        const res = await listAdminPharmacies(
+          session,
+          { status: "ALL" },
+          controller.signal
+        );
         if (controller.signal.aborted) return;
         setSource(res.source);
         setNotice(res.notice);

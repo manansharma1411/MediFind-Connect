@@ -3,6 +3,10 @@ import { signInWithPassword } from "./supabaseAuthClient.ts";
 import {
   isAuthorizedAdminEmail,
   isAuthorizedAdminSession,
+  mapAdminPharmacyRecord,
+  normalizeVerificationStatus,
+  type BackendAdminHistoryEvent,
+  type BackendAdminPharmacyRecord,
 } from "../lib/adminVerificationUtils.ts";
 import type { ApiError, ApiResponse } from "../types/api.ts";
 import type { PharmacySession } from "../types/pharmacy.ts";
@@ -11,6 +15,7 @@ import type {
   AdminVerificationListResponse,
   AdminVerificationStatus,
 } from "../types/adminVerification.ts";
+import type { PaginationMeta } from "../types/aiIntelligence.ts";
 
 export interface AdminServiceResult<T> {
   data: T | null;
@@ -123,6 +128,29 @@ export async function loginAdmin(
   };
 }
 
+interface BackendAdminListPayload {
+  items?: BackendAdminPharmacyRecord[] | null;
+  pagination?: {
+    page?: number;
+    limit?: number;
+    total?: number;
+    totalPages?: number;
+  } | null;
+}
+
+interface BackendAdminDetailsPayload {
+  pharmacy?: BackendAdminPharmacyRecord | null;
+  history?: BackendAdminHistoryEvent[] | null;
+}
+
+export interface VerifyPharmacyDecisionResult {
+  pharmacyId: string;
+  previousStatus: AdminVerificationStatus;
+  verificationStatus: AdminVerificationStatus;
+  isLicensedVerified: boolean;
+  rejectionReason: string | null;
+}
+
 export async function listAdminPharmacies(
   session: PharmacySession | null,
   params: {
@@ -134,22 +162,90 @@ export async function listAdminPharmacies(
   signal?: AbortSignal
 ): Promise<AdminServiceResult<AdminVerificationListResponse>> {
   const validSession = assertAdminSession(session);
-
-  const qs = new URLSearchParams();
-  if (params.status && params.status !== "ALL") qs.set("status", params.status);
-  if (params.search?.trim()) qs.set("search", params.search.trim());
-  if (typeof params.page === "number") qs.set("page", String(params.page));
-  if (typeof params.pageSize === "number") {
-    qs.set("pageSize", String(params.pageSize));
-  }
-  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const limit = params.pageSize ?? 20;
+  const page = params.page ?? 1;
 
   try {
-    const res = await apiClient.get<ApiResponse<AdminVerificationListResponse>>(
-      `/api/v1/admin/pharmacies/pending${suffix}`,
+    if (params.status === "ALL") {
+      const [pendingRes, verifiedRes, rejectedRes] = await Promise.all([
+        apiClient.get<ApiResponse<BackendAdminListPayload>>(
+          `/api/v1/admin/pharmacies/pending?status=PENDING&page=${page}&limit=${limit}`,
+          { headers: authHeaders(validSession), signal }
+        ),
+        apiClient.get<ApiResponse<BackendAdminListPayload>>(
+          `/api/v1/admin/pharmacies/pending?status=VERIFIED&page=1&limit=${limit}`,
+          { headers: authHeaders(validSession), signal }
+        ),
+        apiClient.get<ApiResponse<BackendAdminListPayload>>(
+          `/api/v1/admin/pharmacies/pending?status=REJECTED&page=1&limit=${limit}`,
+          { headers: authHeaders(validSession), signal }
+        ),
+      ]);
+
+      const pendingCount = pendingRes.data?.pagination?.total ?? null;
+      const verifiedCount = verifiedRes.data?.pagination?.total ?? null;
+      const rejectedCount = rejectedRes.data?.pagination?.total ?? null;
+      const totalRegisteredCount =
+        pendingCount !== null && verifiedCount !== null && rejectedCount !== null
+          ? pendingCount + verifiedCount + rejectedCount
+          : null;
+
+      const combinedItems = [
+        ...(Array.isArray(pendingRes.data?.items) ? pendingRes.data.items : []),
+        ...(Array.isArray(verifiedRes.data?.items) ? verifiedRes.data.items : []),
+        ...(Array.isArray(rejectedRes.data?.items) ? rejectedRes.data.items : []),
+      ].map((item) => mapAdminPharmacyRecord(item));
+
+      return {
+        data: {
+          summary: {
+            pendingCount,
+            verifiedCount,
+            rejectedCount,
+            totalRegisteredCount,
+          },
+          items: combinedItems,
+        },
+        source: "live",
+      };
+    }
+
+    const effectiveStatus = params.status ?? "PENDING";
+    const qs = new URLSearchParams({
+      status: effectiveStatus,
+      page: String(page),
+      limit: String(limit),
+    });
+
+    const res = await apiClient.get<ApiResponse<BackendAdminListPayload>>(
+      `/api/v1/admin/pharmacies/pending?${qs.toString()}`,
       { headers: authHeaders(validSession), signal }
     );
-    return { data: res.data, source: "live" };
+
+    const rawItems = Array.isArray(res.data?.items) ? res.data.items : [];
+    const total = res.data?.pagination?.total ?? rawItems.length;
+    const pagination: PaginationMeta | undefined = res.data?.pagination
+      ? {
+          page: res.data.pagination.page,
+          pageSize: res.data.pagination.limit,
+          total: res.data.pagination.total,
+          totalPages: res.data.pagination.totalPages,
+        }
+      : undefined;
+
+    return {
+      data: {
+        summary: {
+          pendingCount: effectiveStatus === "PENDING" ? total : null,
+          verifiedCount: effectiveStatus === "VERIFIED" ? total : null,
+          rejectedCount: effectiveStatus === "REJECTED" ? total : null,
+          totalRegisteredCount: null,
+        },
+        items: rawItems.map((item) => mapAdminPharmacyRecord(item)),
+        pagination,
+      },
+      source: "live",
+    };
   } catch (err) {
     if (isCancelled(err) || !isEndpointUnavailable(err)) throw err;
     return {
@@ -170,12 +266,23 @@ export async function getAdminPharmacyVerificationDetails(
 
   try {
     const res = await apiClient.get<
-      ApiResponse<AdminPharmacyVerificationRecord>
+      ApiResponse<BackendAdminDetailsPayload | BackendAdminPharmacyRecord>
     >(
       `/api/v1/admin/pharmacies/${encodeURIComponent(pharmacyId)}/verification`,
       { headers: authHeaders(validSession), signal }
     );
-    return { data: res.data, source: "live" };
+
+    if (!res.data) {
+      return { data: null, source: "live" };
+    }
+
+    const payload = res.data as BackendAdminDetailsPayload &
+      BackendAdminPharmacyRecord;
+    const record = payload.pharmacy
+      ? mapAdminPharmacyRecord(payload.pharmacy, payload.history)
+      : mapAdminPharmacyRecord(payload, payload.history);
+
+    return { data: record, source: "live" };
   } catch (err) {
     if (isCancelled(err) || !isEndpointUnavailable(err)) throw err;
     return {
@@ -195,11 +302,17 @@ export async function submitPharmacyVerificationDecision(
     reason?: string;
   },
   signal?: AbortSignal
-): Promise<AdminPharmacyVerificationRecord> {
+): Promise<VerifyPharmacyDecisionResult> {
   const validSession = assertAdminSession(session);
 
   const res = await apiClient.patch<
-    ApiResponse<AdminPharmacyVerificationRecord>
+    ApiResponse<{
+      pharmacyId?: string;
+      previousStatus?: string;
+      verificationStatus?: string;
+      isLicensedVerified?: boolean;
+      rejectionReason?: string | null;
+    }>
   >(
     `/api/v1/admin/pharmacies/${encodeURIComponent(pharmacyId)}/verification`,
     {
@@ -209,5 +322,13 @@ export async function submitPharmacyVerificationDecision(
     { headers: authHeaders(validSession), signal }
   );
 
-  return res.data;
+  return {
+    pharmacyId: res.data?.pharmacyId ?? pharmacyId,
+    previousStatus: normalizeVerificationStatus(res.data?.previousStatus),
+    verificationStatus: normalizeVerificationStatus(
+      res.data?.verificationStatus ?? input.decision
+    ),
+    isLicensedVerified: Boolean(res.data?.isLicensedVerified),
+    rejectionReason: res.data?.rejectionReason ?? input.reason ?? null,
+  };
 }
