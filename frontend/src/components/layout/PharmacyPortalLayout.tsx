@@ -26,6 +26,9 @@ import {
   MapPin,
   Radar,
   RefreshCw,
+  BrainCircuit,
+  LineChart,
+  GitCompareArrows,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -167,6 +170,14 @@ function PharmacyPortalShell({ children }: { children: React.ReactNode }) {
       href: "/intelligence/areas",
       icon: <MapPin className="w-4 h-4" />,
     },
+  ];
+
+  const aiIntelligenceNav: NavItem[] = [
+    {
+      label: "AI Overview",
+      href: "/intelligence/ai",
+      icon: <BrainCircuit className="w-4 h-4" />,
+    },
     {
       label: "Shortage Radar",
       href: "/intelligence/shortage-radar",
@@ -176,6 +187,16 @@ function PharmacyPortalShell({ children }: { children: React.ReactNode }) {
       label: "Smart Restock",
       href: "/intelligence/smart-restock",
       icon: <RefreshCw className="w-4 h-4" />,
+    },
+    {
+      label: "Demand Forecast",
+      href: "/intelligence/forecast",
+      icon: <LineChart className="w-4 h-4" />,
+    },
+    {
+      label: "Supply-Demand Matching",
+      href: "/intelligence/matching",
+      icon: <GitCompareArrows className="w-4 h-4" />,
     },
   ];
 
@@ -302,6 +323,12 @@ function PharmacyPortalShell({ children }: { children: React.ReactNode }) {
               </p>
               {renderLinks(intelligenceNav)}
             </div>
+            <div className="pt-3 border-t border-slate-100 space-y-1">
+              <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                AI Intelligence
+              </p>
+              {renderLinks(aiIntelligenceNav)}
+            </div>
           </nav>
         )}
 
@@ -330,6 +357,13 @@ function PharmacyPortalShell({ children }: { children: React.ReactNode }) {
                 Demand Intelligence
               </p>
               <div className="space-y-0.5">{renderLinks(intelligenceNav)}</div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 space-y-1">
+              <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                AI Intelligence
+              </p>
+              <div className="space-y-0.5">{renderLinks(aiIntelligenceNav)}</div>
             </div>
           </aside>
 
