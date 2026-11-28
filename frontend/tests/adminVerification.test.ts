@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   filterVerificationRecords,
   getVerificationStatusMeta,
+  isAuthorizedAdminEmail,
   isAuthorizedAdminSession,
   paginateVerificationRecords,
   validateRejectionReason,
@@ -10,6 +11,7 @@ import {
 import {
   getAdminPharmacyVerificationDetails,
   listAdminPharmacies,
+  loginAdmin,
   submitPharmacyVerificationDecision,
 } from "../src/services/adminVerificationService.ts";
 import type { PharmacySession } from "../src/types/pharmacy.ts";
@@ -180,5 +182,95 @@ test("adminVerificationService blocks unauthorized sessions and handles 404/401/
     globalThis.fetch = originalFetch;
     if (prevApi === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
     else process.env.NEXT_PUBLIC_API_BASE_URL = prevApi;
+  }
+});
+
+test("isAuthorizedAdminEmail restricts to configured admin email and loginAdmin verifies via Supabase + backend", async () => {
+  assert.equal(isAuthorizedAdminEmail("admin676@gmail.com"), true);
+  assert.equal(isAuthorizedAdminEmail("  ADMIN676@GMAIL.COM "), true);
+  assert.equal(isAuthorizedAdminEmail("other@gmail.com"), false);
+
+  await assert.rejects(
+    () => loginAdmin("other@gmail.com", "Password123!"),
+    (err: { status?: number; code?: string }) =>
+      err.status === 403 && err.code === "UNAUTHORIZED_ADMIN_EMAIL"
+  );
+
+  const originalFetch = globalThis.fetch;
+  const prevApi = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const prevSupaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const prevSupaKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  process.env.NEXT_PUBLIC_API_BASE_URL = "https://backend.example.test";
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://auth.example.test";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key-test";
+
+  try {
+    // 1. Successful admin login + backend 200 verification
+    let authHeaderSent: string | null = null;
+    globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/auth/v1/token")) {
+        return new Response(
+          JSON.stringify({
+            access_token: "admin-supa-jwt",
+            user: { id: "admin-uuid-1", email: "admin676@gmail.com" },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      }
+      if (url.includes("/api/v1/admin/pharmacies/pending")) {
+        authHeaderSent = new Headers(init?.headers).get("Authorization");
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: { summary: {}, items: [] },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      }
+      return new Response(null, { status: 404 });
+    };
+
+    const session = await loginAdmin("admin676@gmail.com", "Password123!");
+    assert.equal(session.role, "network_admin");
+    assert.equal(session.accessToken, "admin-supa-jwt");
+    assert.equal(authHeaderSent, "Bearer admin-supa-jwt");
+
+    // 2. Backend returns 403 -> clear permission error
+    globalThis.fetch = async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/auth/v1/token")) {
+        return new Response(
+          JSON.stringify({
+            access_token: "non-admin-jwt",
+            user: { id: "user-1", email: "admin676@gmail.com" },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: { code: "FORBIDDEN", message: "Forbidden" },
+        }),
+        { status: 403, headers: { "content-type": "application/json" } }
+      );
+    };
+
+    await assert.rejects(
+      () => loginAdmin("admin676@gmail.com", "Password123!"),
+      (err: { status?: number; message?: string }) =>
+        err.status === 403 &&
+        err.message === "Your account does not have administrator permissions."
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (prevApi === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    else process.env.NEXT_PUBLIC_API_BASE_URL = prevApi;
+    if (prevSupaUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = prevSupaUrl;
+    if (prevSupaKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = prevSupaKey;
   }
 });

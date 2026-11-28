@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
   Building2,
@@ -86,8 +86,14 @@ export function SuperAdminLayout({
 
 function SuperAdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { session, logout } = usePharmacyAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    router.push("/admin/login");
+  };
 
   const renderNavLinks = () =>
     ADMIN_NAV_ITEMS.map((item) => {
@@ -159,7 +165,7 @@ function SuperAdminShell({ children }: { children: React.ReactNode }) {
               </Badge>
               <button
                 type="button"
-                onClick={logout}
+                onClick={handleLogout}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 hover:bg-slate-800 border border-slate-700 transition-colors"
               >
                 <LogOut className="w-3.5 h-3.5" />
