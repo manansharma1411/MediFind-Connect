@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { getPublicSupabaseClient } from '../config/supabase.js';
+import { getPublicSupabaseClient, getServiceSupabaseClient } from '../config/supabase.js';
 import { env } from '../config/env.js';
 import { AppError } from '../types/index.js';
 
@@ -8,6 +8,8 @@ export interface AuthenticatedUser {
   email: string | null;
   appRole?: string | null;
 }
+
+export type AdminRoleChecker = (userId: string) => Promise<string | null>;
 
 declare global {
   namespace Express {
@@ -84,8 +86,10 @@ export function createRequireAuth(verifier: TokenVerifier = verifySupabaseToken)
 
 export const requireAuth = createRequireAuth();
 
+const ALLOWED_ADMIN_ROLES = new Set(['super_admin', 'network_admin', 'admin']);
+
 export function isAdministratorUser(user: AuthenticatedUser): boolean {
-  if (user.appRole === 'network_admin' || user.appRole === 'admin') {
+  if (user.appRole && ALLOWED_ADMIN_ROLES.has(user.appRole)) {
     return true;
   }
   const adminIds = env.ADMIN_USER_IDS.split(',')
@@ -94,28 +98,58 @@ export function isAdministratorUser(user: AuthenticatedUser): boolean {
   if (adminIds.includes(user.id.toLowerCase())) {
     return true;
   }
-  const adminEmails = env.ADMIN_EMAILS.split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  if (user.email && adminEmails.includes(user.email.toLowerCase())) {
-    return true;
-  }
   return false;
 }
 
-export function createRequireAdmin(verifier: TokenVerifier = verifySupabaseToken) {
+/**
+ * Checks platform_administrators table via service_role client.
+ * Never trusts frontend state, user_metadata, or email text alone.
+ */
+export const checkDatabaseAdminRole: AdminRoleChecker = async (userId: string) => {
+  const client = getServiceSupabaseClient();
+  if (!client) return null;
+
+  const { data, error } = await client
+    .from('platform_administrators')
+    .select('role, is_active')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return typeof data.role === 'string' ? data.role : null;
+};
+
+export function createRequireAdmin(
+  verifier: TokenVerifier = verifySupabaseToken,
+  adminRoleChecker: AdminRoleChecker = checkDatabaseAdminRole
+) {
   const authMiddleware = createRequireAuth(verifier);
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    await authMiddleware(req, res, (err?: unknown) => {
+    await authMiddleware(req, res, async (err?: unknown) => {
       if (err) {
         return next(err);
       }
-      if (!req.user || !isAdministratorUser(req.user)) {
+      if (!req.user) {
         return next(
           new AppError(403, 'FORBIDDEN', 'Administrator privileges are required.')
         );
       }
-      next();
+      if (isAdministratorUser(req.user)) {
+        return next();
+      }
+      try {
+        const dbRole = await adminRoleChecker(req.user.id);
+        if (dbRole && ALLOWED_ADMIN_ROLES.has(dbRole)) {
+          req.user.appRole = dbRole;
+          return next();
+        }
+      } catch {
+        // Fall through to 403 FORBIDDEN
+      }
+      return next(
+        new AppError(403, 'FORBIDDEN', 'Administrator privileges are required.')
+      );
     });
   };
 }

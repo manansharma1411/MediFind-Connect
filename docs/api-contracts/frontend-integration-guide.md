@@ -97,7 +97,8 @@ List endpoints accept `?page=1&limit=20` (max `limit=100`) and return:
 * **Pharmacy Management:**
   * `POST /api/v1/pharmacies/register` — Canonical self-service (email + password) or authenticated pharmacy registration with drug license validation, `PENDING_VERIFICATION` status, `Idempotency-Key` retry safety, and automatic Auth rollback on partial failure.
   * `POST /api/v1/pharmacies` — Backward-compatible authenticated registration alias (requires `Authorization: Bearer <Supabase_JWT>`).
-  * **Admin License Verification (Requires Administrator JWT):**
+  * **Admin License Verification (Requires Administrator JWT via `app_metadata.role` or `platform_administrators`):**
+    * `GET /api/v1/admin/me` — Verify authenticated administrator role (`super_admin`, `network_admin`, `admin`).
     * `GET /api/v1/admin/pharmacies/pending` — List pharmacies by verification status (`PENDING` default).
     * `GET /api/v1/admin/pharmacies/:id/verification` — View submitted license details and immutable verification audit history.
     * `PATCH /api/v1/admin/pharmacies/:id/verification` — Approve (`VERIFIED`, `isLicensedVerified: true`) or reject (`REJECTED` with mandatory reason); blocks self-approval.

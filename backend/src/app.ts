@@ -13,7 +13,7 @@ import { CollaborationService } from './services/collaborationService.js';
 import { IntelligenceService } from './services/intelligenceService.js';
 import { AiIntelligenceService } from './services/aiIntelligenceService.js';
 import { AdminVerificationService } from './services/adminVerificationService.js';
-import { TokenVerifier } from './middleware/auth.js';
+import { AdminRoleChecker, TokenVerifier } from './middleware/auth.js';
 
 export function createApp(options?: {
   medicineService?: MedicineService;
@@ -23,6 +23,7 @@ export function createApp(options?: {
   aiIntelligenceService?: AiIntelligenceService;
   adminVerificationService?: AdminVerificationService;
   tokenVerifier?: TokenVerifier;
+  adminRoleChecker?: AdminRoleChecker;
   signalRateLimitMax?: number;
 }): Express {
   const app = express();
@@ -92,10 +93,11 @@ export function createApp(options?: {
 
   // Mount v1 Administrator Verification routes (strictly admin-only)
   const v1Admin =
-    options?.adminVerificationService || options?.tokenVerifier
+    options?.adminVerificationService || options?.tokenVerifier || options?.adminRoleChecker
       ? createAdminRouter({
           verificationService: options.adminVerificationService,
           tokenVerifier: options.tokenVerifier,
+          adminRoleChecker: options.adminRoleChecker,
         })
       : adminRoutes;
   app.use('/api/v1/admin', v1Admin);
