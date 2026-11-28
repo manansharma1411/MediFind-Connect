@@ -97,9 +97,12 @@ List endpoints accept `?page=1&limit=20` (max `limit=100`) and return:
 * **Pharmacy Management:**
   * `POST /api/v1/pharmacies/register` — Canonical self-service (email + password) or authenticated pharmacy registration with drug license validation, `PENDING_VERIFICATION` status, `Idempotency-Key` retry safety, and automatic Auth rollback on partial failure.
   * `POST /api/v1/pharmacies` — Backward-compatible authenticated registration alias (requires `Authorization: Bearer <Supabase_JWT>`).
-  * **Admin License Verification (Requires Administrator JWT via `app_metadata.role` or `platform_administrators`):**
+  * **Admin License Verification & Pharmacy Management (Requires Administrator JWT via `app_metadata.role` or `platform_administrators`):**
     * `GET /api/v1/admin/me` — Verify authenticated administrator role (`super_admin`, `network_admin`, `admin`).
+    * `GET /api/v1/admin/pharmacies` — List all registered pharmacies (`q`/`search`, `status`, `isActive`, `sortBy`, `sortOrder`, `page`, `limit`).
     * `GET /api/v1/admin/pharmacies/pending` — List pharmacies by verification status (`PENDING` default).
+    * `GET /api/v1/admin/pharmacies/:id` — Retrieve full pharmacy store, license, operational status, and audit history.
+    * `PATCH /api/v1/admin/pharmacies/:id/status` — Suspend (`SUSPEND`) or reactivate (`REACTIVATE`) a pharmacy with mandatory `reason`.
     * `GET /api/v1/admin/pharmacies/:id/verification` — View submitted license details and immutable verification audit history.
     * `PATCH /api/v1/admin/pharmacies/:id/verification` — Approve (`VERIFIED`, `isLicensedVerified: true`) or reject (`REJECTED` with mandatory reason); blocks self-approval.
   * *(Protected `/me/*` routes below require `Authorization: Bearer <Supabase_JWT>`):*
@@ -149,7 +152,7 @@ Do **not** call these in production UI without fallback/mocking until Person B m
 | **Intelligence Overview** | `/intelligence` | `GET /api/v1/intelligence/demand/overview`, `/trends`, `/areas`, `/unmet`, `GET /api/v1/pharmacies/me/intelligence/demand` | `Bearer` (authorized pharmacy) | **Available Now** |
 | **Shortage Radar** | `/intelligence/shortage-radar` | `GET /api/v1/intelligence/shortages`, `/shortages/:medicineId` | `Bearer` (authorized pharmacy) | **Available Now** |
 | **Smart Restock** | `/intelligence/smart-restock` | `GET /api/v1/pharmacies/me/intelligence/restock`, `/restock/:medicineId` | `Bearer` (authorized pharmacy) | **Available Now** |
-| **Super Admin Portal** | `/admin`, `/admin/login` | Sign in via Supabase Auth, then verify with `GET /api/v1/admin/me`; manage licenses via `GET /api/v1/admin/pharmacies/pending` and `GET / PATCH /api/v1/admin/pharmacies/:id/verification` | `Bearer` (`super_admin` / `network_admin` / `admin` verified via `app_metadata.role` or `platform_administrators`) | **Available Now** |
+| **Super Admin Portal** | `/admin`, `/admin/pharmacies` | Sign in via `/admin/login` (`GET /api/v1/admin/me`); manage pharmacies via `GET /api/v1/admin/pharmacies`, `GET /api/v1/admin/pharmacies/:id`, `PATCH /api/v1/admin/pharmacies/:id/{verification\|status}` | `Bearer` (`super_admin` / `network_admin` / `admin` verified via `app_metadata.role` or `platform_administrators`) | **Available Now** |
 
 ### Loading & Error Handling Expectations
 * **Cold Starts (Render Free Tier):** Initial requests after 15 minutes of inactivity may take 30–50s. Use non-blocking loading skeletons and timeouts >= 15s on interactive queries.

@@ -8,6 +8,7 @@ import {
   AdminPharmacyVerificationRecord,
   IAdminVerificationRepository,
   PharmacyVerificationEventRecord,
+  UpdatePharmacyStatusAtomicResult,
   VerifyPharmacyAtomicResult,
 } from '../src/repositories/adminVerificationRepository.js';
 import { AdminVerificationService } from '../src/services/adminVerificationService.js';
@@ -89,6 +90,44 @@ class InMemoryAdminVerificationStore implements IAdminVerificationRepository {
     ];
   }
 
+  async listAllPharmacies(params: {
+    q?: string;
+    status: 'ALL' | VerificationStatus;
+    isActive: 'all' | 'true' | 'false';
+    sortBy: 'createdAt' | 'name' | 'verificationStatus';
+    sortOrder: 'asc' | 'desc';
+    page: number;
+    limit: number;
+  }) {
+    let items = [...this.pharmacies];
+    if (params.status !== 'ALL') {
+      items = items.filter((p) => p.verificationStatus === params.status);
+    }
+    if (params.isActive === 'true') items = items.filter((p) => p.isActive);
+    if (params.isActive === 'false') items = items.filter((p) => !p.isActive);
+    if (params.q) {
+      const q = params.q.toLowerCase();
+      items = items.filter((p) => p.name.toLowerCase().includes(q));
+    }
+    items.sort((a, b) => {
+      const av =
+        params.sortBy === 'name'
+          ? a.name
+          : params.sortBy === 'verificationStatus'
+            ? a.verificationStatus
+            : a.createdAt;
+      const bv =
+        params.sortBy === 'name'
+          ? b.name
+          : params.sortBy === 'verificationStatus'
+            ? b.verificationStatus
+            : b.createdAt;
+      return params.sortOrder === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+    const start = (params.page - 1) * params.limit;
+    return { items: items.slice(start, start + params.limit), total: items.length };
+  }
+
   async listPharmaciesByVerificationStatus(params: {
     status: VerificationStatus;
     page: number;
@@ -161,6 +200,47 @@ class InMemoryAdminVerificationStore implements IAdminVerificationRepository {
       verificationStatus: p.verificationStatus,
       isLicensedVerified: p.isLicensedVerified,
       rejectionReason: p.rejectionReason,
+    };
+  }
+
+  async updatePharmacyOperationalStatusAtomic(params: {
+    pharmacyId: string;
+    adminUserId: string;
+    action: 'SUSPEND' | 'REACTIVATE';
+    reason: string;
+  }): Promise<UpdatePharmacyStatusAtomicResult> {
+    const p = this.pharmacies.find((x) => x.id === params.pharmacyId);
+    if (!p) throw new AppError(404, 'RESOURCE_NOT_FOUND', 'Pharmacy not found');
+    const prev = p.verificationStatus;
+    if (params.action === 'SUSPEND') {
+      p.isActive = false;
+      p.verificationStatus = 'SUSPENDED';
+      p.rejectionReason = params.reason;
+    } else {
+      p.isActive = true;
+      p.verificationStatus = p.isLicensedVerified ? 'VERIFIED' : 'PENDING';
+      p.rejectionReason = null;
+    }
+    p.updatedAt = new Date().toISOString();
+
+    this.events.push({
+      id: this.seq++,
+      pharmacyId: p.id,
+      previousStatus: prev,
+      newStatus: p.verificationStatus,
+      action: params.action === 'SUSPEND' ? 'SUSPEND' : 'REOPEN',
+      adminUserId: params.adminUserId,
+      reason: params.reason,
+      createdAt: new Date().toISOString(),
+    });
+
+    return {
+      pharmacyId: p.id,
+      previousStatus: prev,
+      verificationStatus: p.verificationStatus,
+      isActive: p.isActive,
+      isLicensedVerified: p.isLicensedVerified,
+      reason: params.reason,
     };
   }
 }
@@ -422,4 +502,98 @@ test('Admin verification: pending list, authz (401/403), self-approval block, re
     headers: { Authorization: 'Bearer token-owner' },
   });
   assert.equal(verifiedCollab.status, 200);
+});
+
+test('Admin Pharmacy Management: list, search, filter, sort, pagination, details, suspend & reactivate', async () => {
+  // Unauthorized -> 401 / 403
+  assert.equal((await fetch(`${baseUrl}/api/v1/admin/pharmacies`)).status, 401);
+  assert.equal(
+    (
+      await fetch(`${baseUrl}/api/v1/admin/pharmacies`, {
+        headers: { Authorization: 'Bearer token-owner' },
+      })
+    ).status,
+    403
+  );
+
+  // List all with pagination & sortBy name asc
+  const listRes = await fetch(
+    `${baseUrl}/api/v1/admin/pharmacies?sortBy=name&sortOrder=asc&page=1&limit=1`,
+    { headers: { Authorization: 'Bearer token-admin' } }
+  );
+  assert.equal(listRes.status, 200);
+  const listJson = await listRes.json();
+  assert.equal(listJson.data.items.length, 1);
+  assert.equal(listJson.data.items[0].name, 'Admin Owned Store');
+  assert.equal(listJson.data.pagination.total, 2);
+  assert.equal(listJson.data.pagination.totalPages, 2);
+
+  // Search by name
+  const searchRes = await fetch(`${baseUrl}/api/v1/admin/pharmacies?q=CarePlus`, {
+    headers: { Authorization: 'Bearer token-admin' },
+  });
+  assert.equal(searchRes.status, 200);
+  const searchJson = await searchRes.json();
+  assert.equal(searchJson.data.items.length, 1);
+  assert.equal(searchJson.data.items[0].id, PHARM_ID);
+
+  // Approve CarePlus first, then filter by status=VERIFIED
+  await fetch(`${baseUrl}/api/v1/admin/pharmacies/${PHARM_ID}/verification`, {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer token-admin', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'APPROVE' }),
+  });
+
+  const verifiedList = await fetch(`${baseUrl}/api/v1/admin/pharmacies?status=VERIFIED`, {
+    headers: { Authorization: 'Bearer token-admin' },
+  });
+  const verifiedJson = await verifiedList.json();
+  assert.equal(verifiedJson.data.items.length, 1);
+
+  // Get Pharmacy Details
+  const detailRes = await fetch(`${baseUrl}/api/v1/admin/pharmacies/${PHARM_ID}`, {
+    headers: { Authorization: 'Bearer token-admin' },
+  });
+  assert.equal(detailRes.status, 200);
+  const detailJson = await detailRes.json();
+  assert.equal(detailJson.data.pharmacy.licenseNumber, 'MP-BPL-2026-101');
+  assert.equal(detailJson.data.history.length, 1);
+
+  // Suspend pharmacy -> isActive false, status SUSPENDED
+  const suspendRes = await fetch(`${baseUrl}/api/v1/admin/pharmacies/${PHARM_ID}/status`, {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer token-admin', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'SUSPEND',
+      reason: 'Temporary cold-chain compliance audit hold.',
+    }),
+  });
+  assert.equal(suspendRes.status, 200);
+  const suspendJson = await suspendRes.json();
+  assert.equal(suspendJson.data.isActive, false);
+  assert.equal(suspendJson.data.verificationStatus, 'SUSPENDED');
+
+  // Reactivate pharmacy -> restores VERIFIED because isLicensedVerified is true
+  const reactivateRes = await fetch(`${baseUrl}/api/v1/admin/pharmacies/${PHARM_ID}/status`, {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer token-admin', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'REACTIVATE',
+      reason: 'Compliance inspection passed and cleared.',
+    }),
+  });
+  assert.equal(reactivateRes.status, 200);
+  const reactivateJson = await reactivateRes.json();
+  assert.equal(reactivateJson.data.isActive, true);
+  assert.equal(reactivateJson.data.verificationStatus, 'VERIFIED');
+
+  // Audit log records APPROVE, SUSPEND, and REOPEN
+  const afterDetail = await (
+    await fetch(`${baseUrl}/api/v1/admin/pharmacies/${PHARM_ID}`, {
+      headers: { Authorization: 'Bearer token-admin' },
+    })
+  ).json();
+  assert.equal(afterDetail.data.history.length, 3);
+  assert.equal(afterDetail.data.history[0].action, 'REOPEN');
+  assert.equal(afterDetail.data.history[1].action, 'SUSPEND');
 });

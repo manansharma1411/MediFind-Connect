@@ -29,7 +29,10 @@ export function createAdminRouter(options?: {
   router.use(adminGuard);
 
   router.get('/me', controller.getAdminProfile);
+  router.get('/pharmacies', controller.listAllPharmacies);
   router.get('/pharmacies/pending', controller.listPendingPharmacies);
+  router.get('/pharmacies/:id', controller.getVerificationDetails);
+  router.patch('/pharmacies/:id/status', controller.updatePharmacyStatus);
   router.get('/pharmacies/:id/verification', controller.getVerificationDetails);
   router.patch('/pharmacies/:id/verification', controller.verifyPharmacy);
 

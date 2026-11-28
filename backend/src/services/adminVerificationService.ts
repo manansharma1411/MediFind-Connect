@@ -10,6 +10,39 @@ export class AdminVerificationService {
     private readonly repo: IAdminVerificationRepository = adminVerificationRepository
   ) {}
 
+  async listAllPharmacies(query: {
+    q?: string;
+    search?: string;
+    status: 'ALL' | VerificationStatus;
+    isActive: 'all' | 'true' | 'false';
+    sortBy: 'createdAt' | 'name' | 'verificationStatus';
+    sortOrder: 'asc' | 'desc';
+    page: number;
+    limit: number;
+  }) {
+    const searchText = query.q || query.search;
+    const { items, total } = await this.repo.listAllPharmacies({
+      q: searchText,
+      status: query.status,
+      isActive: query.isActive,
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
+      page: query.page,
+      limit: query.limit,
+    });
+    const totalPages = total > 0 ? Math.ceil(total / query.limit) : 0;
+
+    return {
+      items,
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total,
+        totalPages,
+      },
+    };
+  }
+
   async listPharmacies(query: {
     status: VerificationStatus;
     page: number;
@@ -87,6 +120,34 @@ export class AdminVerificationService {
       action: input.action,
       reason: input.reason,
       isVerifiedAdmin: Boolean(options?.isVerifiedAdmin),
+    });
+  }
+
+  async updatePharmacyOperationalStatus(
+    pharmacyId: string,
+    adminUserId: string,
+    input: { action: 'SUSPEND' | 'REACTIVATE'; reason: string },
+    options?: { isVerifiedAdmin?: boolean }
+  ) {
+    const pharmacy = await this.repo.getPharmacyVerificationById(pharmacyId);
+    if (!pharmacy) {
+      throw new AppError(
+        404,
+        'RESOURCE_NOT_FOUND',
+        `Pharmacy ${pharmacyId} not found.`
+      );
+    }
+
+    if (!options?.isVerifiedAdmin) {
+      throw new AppError(403, 'FORBIDDEN', 'Administrator privileges are required.');
+    }
+
+    return this.repo.updatePharmacyOperationalStatusAtomic({
+      pharmacyId,
+      adminUserId,
+      action: input.action,
+      reason: input.reason,
+      isVerifiedAdmin: true,
     });
   }
 }
