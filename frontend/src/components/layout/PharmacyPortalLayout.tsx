@@ -21,6 +21,11 @@ import {
   Send,
   FileText,
   Clock,
+  TrendingUp,
+  AlertOctagon,
+  MapPin,
+  Radar,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -136,11 +141,36 @@ function PharmacyPortalShell({ children }: { children: React.ReactNode }) {
     },
   ];
 
-  const networkNav: NavItem[] = [
+  const intelligenceNav: NavItem[] = [
     {
-      label: "Intelligence",
+      label: "Intelligence Overview",
       href: "/intelligence",
       icon: <Activity className="w-4 h-4" />,
+    },
+    {
+      label: "Medicine Demand",
+      href: "/intelligence/medicines",
+      icon: <TrendingUp className="w-4 h-4" />,
+    },
+    {
+      label: "Unmet Demand",
+      href: "/intelligence/unmet",
+      icon: <AlertOctagon className="w-4 h-4" />,
+    },
+    {
+      label: "Area Insights",
+      href: "/intelligence/areas",
+      icon: <MapPin className="w-4 h-4" />,
+    },
+    {
+      label: "Shortage Radar",
+      href: "/intelligence/shortage-radar",
+      icon: <Radar className="w-4 h-4" />,
+    },
+    {
+      label: "Smart Restock",
+      href: "/intelligence/smart-restock",
+      icon: <RefreshCw className="w-4 h-4" />,
     },
   ];
 
@@ -263,9 +293,9 @@ function PharmacyPortalShell({ children }: { children: React.ReactNode }) {
             </div>
             <div className="pt-3 border-t border-slate-100 space-y-1">
               <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Intelligence
+                Demand Intelligence
               </p>
-              {renderLinks(networkNav)}
+              {renderLinks(intelligenceNav)}
             </div>
           </nav>
         )}
@@ -292,9 +322,9 @@ function PharmacyPortalShell({ children }: { children: React.ReactNode }) {
 
             <div className="pt-4 border-t border-slate-100 space-y-1">
               <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Intelligence
+                Demand Intelligence
               </p>
-              <div className="space-y-0.5">{renderLinks(networkNav)}</div>
+              <div className="space-y-0.5">{renderLinks(intelligenceNav)}</div>
             </div>
           </aside>
 

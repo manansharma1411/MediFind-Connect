@@ -1,5 +1,5 @@
 import React from "react";
-import { PortalShell } from "@/components/layout/PortalShell";
+import { PharmacyPortalLayout } from "@/components/layout/PharmacyPortalLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
   Card,
@@ -18,7 +18,7 @@ import { EmptyState } from "@/components/ui/States";
 
 export default function SmartRestockPage() {
   return (
-    <PortalShell>
+    <PharmacyPortalLayout>
       <PageHeader
         breadcrumbs={[
           { label: "Home", href: "/" },
@@ -68,6 +68,6 @@ export default function SmartRestockPage() {
           </TableContainer>
         </CardContent>
       </Card>
-    </PortalShell>
+    </PharmacyPortalLayout>
   );
 }
