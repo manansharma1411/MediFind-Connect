@@ -720,6 +720,58 @@ paths:
         '200':
           description: Paginated eligible transfer opportunities for verified pharmacies
 
+  # ============================================================================
+  # ADMIN PHARMACY LICENSE VERIFICATION (OPERATIONAL - ADMIN ONLY)
+  # ============================================================================
+  /api/v1/admin/pharmacies/pending:
+    get:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] List pharmacies awaiting license verification (admin only)'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Paginated list of pharmacies filtered by verificationStatus (default PENDING)
+        '403':
+          description: Administrator privileges required
+
+  /api/v1/admin/pharmacies/{id}/verification:
+    get:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Inspect pharmacy license details and verification audit history (admin only)'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Pharmacy license details and immutable verification audit history
+    patch:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Approve or reject pharmacy license verification (admin only, self-approval blocked)'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Verification status updated and recorded in pharmacy_verification_events
+        '403':
+          description: Non-admin or self-approval attempt blocked
+
 components:
   securitySchemes:
     BearerAuth:

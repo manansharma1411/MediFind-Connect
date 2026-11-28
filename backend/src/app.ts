@@ -6,11 +6,13 @@ import medicineRoutes, { createMedicineRouter } from './routes/medicines.js';
 import pharmacyRoutes, { createPharmacyRouter } from './routes/pharmacies.js';
 import collaborationRoutes, { createCollaborationRouter } from './routes/collaboration.js';
 import intelligenceRoutes, { createIntelligenceRouter } from './routes/intelligence.js';
+import adminRoutes, { createAdminRouter } from './routes/admin.js';
 import { MedicineService } from './services/medicineService.js';
 import { PharmacyService } from './services/pharmacyService.js';
 import { CollaborationService } from './services/collaborationService.js';
 import { IntelligenceService } from './services/intelligenceService.js';
 import { AiIntelligenceService } from './services/aiIntelligenceService.js';
+import { AdminVerificationService } from './services/adminVerificationService.js';
 import { TokenVerifier } from './middleware/auth.js';
 
 export function createApp(options?: {
@@ -19,6 +21,7 @@ export function createApp(options?: {
   collaborationService?: CollaborationService;
   intelligenceService?: IntelligenceService;
   aiIntelligenceService?: AiIntelligenceService;
+  adminVerificationService?: AdminVerificationService;
   tokenVerifier?: TokenVerifier;
   signalRateLimitMax?: number;
 }): Express {
@@ -86,6 +89,16 @@ export function createApp(options?: {
         })
       : intelligenceRoutes;
   app.use('/api/v1/intelligence', v1Intelligence);
+
+  // Mount v1 Administrator Verification routes (strictly admin-only)
+  const v1Admin =
+    options?.adminVerificationService || options?.tokenVerifier
+      ? createAdminRouter({
+          verificationService: options.adminVerificationService,
+          tokenVerifier: options.tokenVerifier,
+        })
+      : adminRoutes;
+  app.use('/api/v1/admin', v1Admin);
 
   // Fallback for unmatched endpoints
   app.use(notFoundHandler);
