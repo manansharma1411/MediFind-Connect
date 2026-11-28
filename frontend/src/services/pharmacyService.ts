@@ -1,4 +1,5 @@
 import { apiClient } from "./apiClient.ts";
+import { signInWithPassword } from "./supabaseAuthClient.ts";
 import type { ApiError, ApiResponse } from "../types/api.ts";
 import type {
   PharmacyAlertItem,
@@ -54,35 +55,101 @@ export async function loginPharmacy(
   password: string,
   signal?: AbortSignal
 ): Promise<PharmacySession> {
-  const res = await apiClient.post<ApiResponse<PharmacySession>>(
-    "/api/v1/auth/login",
-    { email, password },
-    { signal }
-  );
-  return res.data;
+  const auth = await signInWithPassword(email, password, signal);
+
+  try {
+    const profileRes = await apiClient.get<
+      ApiResponse<{
+        id: string;
+        name: string;
+      }>
+    >("/api/v1/pharmacies/me", {
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      signal,
+    });
+
+    return {
+      accessToken: auth.accessToken,
+      userId: auth.userId,
+      email: auth.email,
+      displayName: auth.email.split("@")[0] || "Pharmacy Staff",
+      role: "pharmacy_admin",
+      pharmacyId: profileRes.data.id,
+      pharmacyName: profileRes.data.name,
+      isPreviewSession: false,
+    };
+  } catch (err) {
+    const apiErr = err as Partial<ApiError>;
+    if (apiErr.status === 403) {
+      // Authenticated in Supabase Auth, but pharmacy profile not registered yet
+      return {
+        accessToken: auth.accessToken,
+        userId: auth.userId,
+        email: auth.email,
+        displayName: auth.email.split("@")[0] || "Pharmacy Staff",
+        role: "pharmacy_admin",
+        pharmacyId: "",
+        pharmacyName: "Unregistered Pharmacy",
+        isPreviewSession: false,
+      };
+    }
+    throw err;
+  }
 }
 
 export interface RegisterPharmacyPayload {
   name: string;
-  licenseNumber: string;
   phone: string;
   email: string;
-  password: string;
+  password?: string;
+  licenseNumber: string;
+  is24x7: boolean;
+  tier: "standard" | "hub" | "hospital_attached";
   address: string;
   area: string;
   city: string;
   state: string;
   pincode: string;
+  lat?: number;
+  lng?: number;
+}
+
+export interface RegisterPharmacyResponse {
+  pharmacyId: string;
+  status: "PENDING_VERIFICATION" | "VERIFIED";
+  verificationStatus: string;
+  isLicensedVerified: boolean;
+  name: string;
+  area: string;
+  city: string;
+  pincode: string;
   is24x7: boolean;
 }
 
+/**
+ * Registers a pharmacy using Person B's canonical self-registration endpoint:
+ * POST /api/v1/pharmacies/register.
+ * The backend creates the Supabase Auth owner account and Postgres pharmacy profile atomically.
+ * Never creates a Supabase Auth user separately beforehand and never sends an invalid/unrelated Bearer token.
+ */
 export async function registerPharmacy(
-  payload: RegisterPharmacyPayload,
+  input: {
+    payload: RegisterPharmacyPayload;
+    existingAccessToken?: string;
+  },
   signal?: AbortSignal
-): Promise<{ pharmacyId: string; status: string }> {
-  const res = await apiClient.post<
-    ApiResponse<{ pharmacyId: string; status: string }>
-  >("/api/v1/pharmacies/register", payload, { signal });
+): Promise<RegisterPharmacyResponse> {
+  const token = input.existingAccessToken?.trim();
+
+  const res = await apiClient.post<ApiResponse<RegisterPharmacyResponse>>(
+    "/api/v1/pharmacies/register",
+    input.payload,
+    {
+      ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+      signal,
+    }
+  );
+
   return res.data;
 }
 
