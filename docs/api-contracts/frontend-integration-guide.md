@@ -149,6 +149,7 @@ Do **not** call these in production UI without fallback/mocking until Person B m
 | **Intelligence Overview** | `/intelligence` | `GET /api/v1/intelligence/demand/overview`, `/trends`, `/areas`, `/unmet`, `GET /api/v1/pharmacies/me/intelligence/demand` | `Bearer` (authorized pharmacy) | **Available Now** |
 | **Shortage Radar** | `/intelligence/shortage-radar` | `GET /api/v1/intelligence/shortages`, `/shortages/:medicineId` | `Bearer` (authorized pharmacy) | **Available Now** |
 | **Smart Restock** | `/intelligence/smart-restock` | `GET /api/v1/pharmacies/me/intelligence/restock`, `/restock/:medicineId` | `Bearer` (authorized pharmacy) | **Available Now** |
+| **Super Admin Portal** | `/admin`, `/admin/login` | Sign in via Supabase Auth, then verify with `GET /api/v1/admin/me`; manage licenses via `GET /api/v1/admin/pharmacies/pending` and `GET / PATCH /api/v1/admin/pharmacies/:id/verification` | `Bearer` (`super_admin` / `network_admin` / `admin` verified via `app_metadata.role` or `platform_administrators`) | **Available Now** |
 
 ### Loading & Error Handling Expectations
 * **Cold Starts (Render Free Tier):** Initial requests after 15 minutes of inactivity may take 30–50s. Use non-blocking loading skeletons and timeouts >= 15s on interactive queries.
