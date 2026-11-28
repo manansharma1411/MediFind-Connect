@@ -118,12 +118,15 @@ List endpoints accept `?page=1&limit=20` (max `limit=100`) and return:
   * `GET /api/v1/intelligence/demand/unmet` — Aggregated unmet demand signals (`NO_MATCH`, `NO_ELIGIBLE_NEARBY_STOCK`, `PARTIAL_AVAILABILITY`).
   * `GET /api/v1/intelligence/demand/medicines/:medicineId` — Per-medicine local demand level, trend, supply indicators, and data confidence.
   * `GET /api/v1/pharmacies/me/intelligence/demand` — Demand intelligence strictly scoped to the authenticated pharmacy's permitted area.
+  * `GET /api/v1/intelligence/shortages` & `GET /api/v1/intelligence/shortages/:medicineId` — Multi-factor area shortage-risk radar (`LOW | MODERATE | HIGH | INSUFFICIENT_DATA`).
+  * `GET /api/v1/pharmacies/me/intelligence/restock` & `/:medicineId` — Pharmacy-specific restock review recommendations (`DEMAND_SIGNAL_BASED` when sales absent; never auto-orders).
+  * `GET /api/v1/intelligence/forecast` — Walk-forward exponential-smoothing demand-signal forecast with MAE/RMSE/MAPE & Naive baseline evaluation.
+  * `GET /api/v1/intelligence/matches` — Potential peer-to-peer transfer matches for verified pharmacies (excludes expired/reserved/controlled/cold-chain; never auto-creates transfers).
   * *Privacy & Thresholds:* Minimum group threshold (`DEMAND_MIN_THRESHOLD`, default `5`) suppresses small groups and prevents differencing; no raw events, IPs, or exact timestamps are exposed; 90-day aggregate retention and 15-minute SHA-256 deduplication window.
 
 ### Planned for Upcoming Phases (NOT YET IMPLEMENTED)
 Do **not** call these in production UI without fallback/mocking until Person B marks them operational:
 * **Public Pharmacy Directory:** `GET /api/v1/pharmacies`, `GET /api/v1/pharmacies/:id`
-* **AI Shortage Radar & Smart Restock:** `GET /api/v1/intelligence/{shortage-radar|restock-recommendations}`
 
 ---
 
@@ -139,8 +142,8 @@ Do **not** call these in production UI without fallback/mocking until Person B m
 | **Inventory Management** | `/pharmacy/inventory` | `GET /api/v1/pharmacies/:id/inventory`, `PATCH /api/v1/pharmacies/:id/inventory` | `Bearer` (`pharmacy_staff` of `:id`) | Planned |
 | **Pharmacy Collaboration** | `/collaboration` | `GET /api/v1/collaboration/stock`, `GET/POST /api/v1/collaboration/transfers`, `POST /api/v1/collaboration/transfers/:id/{approve\|reject\|dispatch\|receive\|cancel}` | `Bearer` (authorized pharmacy participant) | **Available Now** |
 | **Intelligence Overview** | `/intelligence` | `GET /api/v1/intelligence/demand/overview`, `/trends`, `/areas`, `/unmet`, `GET /api/v1/pharmacies/me/intelligence/demand` | `Bearer` (authorized pharmacy) | **Available Now** |
-| **Shortage Radar** | `/intelligence/shortage-radar` | `GET /api/v1/intelligence/shortage-radar?area=...` | `Bearer` (`pharmacy_staff` / `network_admin`) | Planned |
-| **Smart Restock** | `/intelligence/smart-restock` | `GET /api/v1/intelligence/restock-recommendations?pharmacyId=...` | `Bearer` (`pharmacy_staff` of `pharmacyId`) | Planned |
+| **Shortage Radar** | `/intelligence/shortage-radar` | `GET /api/v1/intelligence/shortages`, `/shortages/:medicineId` | `Bearer` (authorized pharmacy) | **Available Now** |
+| **Smart Restock** | `/intelligence/smart-restock` | `GET /api/v1/pharmacies/me/intelligence/restock`, `/restock/:medicineId` | `Bearer` (authorized pharmacy) | **Available Now** |
 
 ### Loading & Error Handling Expectations
 * **Cold Starts (Render Free Tier):** Initial requests after 15 minutes of inactivity may take 30–50s. Use non-blocking loading skeletons and timeouts >= 15s on interactive queries.

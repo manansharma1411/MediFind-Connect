@@ -10,6 +10,7 @@ import { MedicineService } from './services/medicineService.js';
 import { PharmacyService } from './services/pharmacyService.js';
 import { CollaborationService } from './services/collaborationService.js';
 import { IntelligenceService } from './services/intelligenceService.js';
+import { AiIntelligenceService } from './services/aiIntelligenceService.js';
 import { TokenVerifier } from './middleware/auth.js';
 
 export function createApp(options?: {
@@ -17,6 +18,7 @@ export function createApp(options?: {
   pharmacyService?: PharmacyService;
   collaborationService?: CollaborationService;
   intelligenceService?: IntelligenceService;
+  aiIntelligenceService?: AiIntelligenceService;
   tokenVerifier?: TokenVerifier;
   signalRateLimitMax?: number;
 }): Express {
@@ -47,10 +49,14 @@ export function createApp(options?: {
 
   // Mount v1 Pharmacy Management routes (authenticated & tenant-isolated)
   const v1Pharmacies =
-    options?.pharmacyService || options?.intelligenceService || options?.tokenVerifier
+    options?.pharmacyService ||
+    options?.intelligenceService ||
+    options?.aiIntelligenceService ||
+    options?.tokenVerifier
       ? createPharmacyRouter({
           service: options.pharmacyService,
           intelligenceService: options.intelligenceService,
+          aiIntelligenceService: options.aiIntelligenceService,
           tokenVerifier: options.tokenVerifier,
         })
       : pharmacyRoutes;
@@ -68,9 +74,13 @@ export function createApp(options?: {
 
   // Mount v1 Local Demand Intelligence routes (k-anonymous & pharmacy-scoped)
   const v1Intelligence =
-    options?.intelligenceService || options?.tokenVerifier || options?.signalRateLimitMax
+    options?.intelligenceService ||
+    options?.aiIntelligenceService ||
+    options?.tokenVerifier ||
+    options?.signalRateLimitMax
       ? createIntelligenceRouter({
           service: options.intelligenceService,
+          aiService: options.aiIntelligenceService,
           tokenVerifier: options.tokenVerifier,
           signalRateLimitMax: options.signalRateLimitMax,
         })
