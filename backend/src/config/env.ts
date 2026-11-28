@@ -16,6 +16,8 @@ const envSchema = z.object({
   DEMAND_RETENTION_DAYS: z.coerce.number().int().min(7).max(365).default(90),
   DEMAND_DEDUP_TTL_SECONDS: z.coerce.number().int().min(60).max(86400).default(900),
   DEMAND_SIGNAL_SALT: z.string().min(8).default('medifind-demand-salt-v1'),
+  ADMIN_USER_IDS: z.string().optional().default(''),
+  ADMIN_EMAILS: z.string().optional().default(''),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
