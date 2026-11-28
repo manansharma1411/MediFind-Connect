@@ -317,8 +317,33 @@ test('Shortage Radar: multi-factor scoring, zero supply, expired/reserved exclus
   assert.equal(byId.get(MED_DOLO).supportingIndicators.expiredBatchesExcluded, 1);
 
   assert.equal(byId.get(MED_AZITHRO).riskCategory, 'LOW');
-  assert.equal(byId.get(MED_LOW_DEMAND).riskCategory, 'INSUFFICIENT_DATA');
-  assert.equal(byId.get(MED_LOW_DEMAND).riskScore, null);
+  assert.equal(byId.get(MED_AZITHRO).supportingIndicators.demandAvailabilityStatus, 'SUFFICIENT');
+  assert.equal(byId.get(MED_AZITHRO).supportingIndicators.supplyAvailabilityStatus, 'AVAILABLE');
+
+  const lowItem = byId.get(MED_LOW_DEMAND);
+  assert.equal(lowItem.riskCategory, 'INSUFFICIENT_DATA');
+  assert.equal(lowItem.riskScore, null);
+  assert.equal(lowItem.supportingIndicators.demandAvailabilityStatus, 'SUPPRESSED_BELOW_THRESHOLD');
+  assert.equal(lowItem.supportingIndicators.supplyAvailabilityStatus, 'SUPPRESSED');
+  assert.equal(lowItem.supportingIndicators.recentDemandSignals, null);
+  assert.equal(lowItem.supportingIndicators.priorDemandSignals, null);
+  assert.equal(lowItem.supportingIndicators.unmetDemandSignals, null);
+  assert.equal(lowItem.supportingIndicators.unmetDemandRatio, null);
+  assert.equal(lowItem.supportingIndicators.eligibleSupplyAvailable, null);
+  assert.equal(lowItem.supportingIndicators.reservedStockExcluded, null);
+  assert.equal(lowItem.supportingIndicators.participatingPharmaciesCount, null);
+  assert.equal(lowItem.explanation.influencingMetrics.recentDemandSignals, undefined);
+  assert.equal(lowItem.explanation.whyIdentified.includes(' 2 '), false);
+
+  // Zero demand medicine (no aggregates, only inventory slot or detail lookup) -> ZERO_DEMAND
+  const zeroRes = await fetch(`${baseUrl}/api/v1/intelligence/shortages/${MED_CONTROLLED}`, {
+    headers: { Authorization: 'Bearer token-a' },
+  });
+  assert.equal(zeroRes.status, 200);
+  const zeroJson = await zeroRes.json();
+  assert.equal(zeroJson.data.riskCategory, 'INSUFFICIENT_DATA');
+  assert.equal(zeroJson.data.supportingIndicators.demandAvailabilityStatus, 'ZERO_DEMAND');
+  assert.equal(zeroJson.data.supportingIndicators.recentDemandSignals, null);
 });
 
 test('Smart Restock: missing sales & lead-time transparency, expired/reserved exclusion & tenant isolation', async () => {

@@ -3,6 +3,11 @@ export const AI_ALGORITHM_VERSION = 'v1.0.0-deterministic';
 export type ShortageRiskCategory = 'LOW' | 'MODERATE' | 'HIGH' | 'INSUFFICIENT_DATA';
 export type ConfidenceLevel = 'INSUFFICIENT' | 'LOW' | 'MODERATE' | 'HIGH';
 export type RestockBasis = 'SALES_AND_DEMAND_BASED' | 'DEMAND_SIGNAL_BASED';
+export type DemandAvailabilityStatus =
+  | 'ZERO_DEMAND'
+  | 'SUPPRESSED_BELOW_THRESHOLD'
+  | 'SUFFICIENT';
+export type SupplyAvailabilityStatus = 'NONE' | 'AVAILABLE' | 'SUPPRESSED';
 
 export interface AiExplanation {
   summary: string;
@@ -33,16 +38,18 @@ export interface ShortageRadarItem {
   riskScore: number | null; // 0.00 - 1.00, null when INSUFFICIENT_DATA
   estimatedRiskPeriodDays: number | null;
   supportingIndicators: {
-    recentDemandSignals: number;
-    priorDemandSignals: number;
+    demandAvailabilityStatus: DemandAvailabilityStatus;
+    supplyAvailabilityStatus: SupplyAvailabilityStatus;
+    recentDemandSignals: number | null;
+    priorDemandSignals: number | null;
     demandGrowthRatePercent: number | null;
-    unmetDemandSignals: number;
-    unmetDemandRatio: number;
-    eligibleSupplyAvailable: number;
-    reservedStockExcluded: number;
-    expiredBatchesExcluded: number;
-    nearExpiryUnitsCount: number;
-    participatingPharmaciesCount: number;
+    unmetDemandSignals: number | null;
+    unmetDemandRatio: number | null;
+    eligibleSupplyAvailable: number | null;
+    reservedStockExcluded: number | null;
+    expiredBatchesExcluded: number | null;
+    nearExpiryUnitsCount: number | null;
+    participatingPharmaciesCount: number | null;
   };
   algorithmVersion: string;
   generatedAt: string;
@@ -61,8 +68,9 @@ export interface SmartRestockItem {
   estimatedCoverageDays: number | null;
   basis: RestockBasis;
   supportingMetrics: {
+    demandAvailabilityStatus: DemandAvailabilityStatus;
     observedSalesUnits30d: number | null;
-    areaDailyDemandRate: number;
+    areaDailyDemandRate: number | null;
     nearExpiryUnits30d: number;
     leadTimeDaysUsed: number | null; // null unless actual data exists
   };
@@ -117,7 +125,7 @@ export interface SupplyDemandMatchItem {
   packSize: string;
   requestingArea: string;
   areaDemandSignals: number;
-  areaUnmetSignals: number;
+  areaUnmetSignals: number | null;
   supplyingPharmacyId: string;
   supplyingPharmacyName: string;
   supplyingArea: string;

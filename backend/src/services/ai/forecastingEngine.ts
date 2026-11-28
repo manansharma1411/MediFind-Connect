@@ -91,11 +91,14 @@ export function generateDemandForecast(params: {
       explanation: {
         summary: `Insufficient historical data to forecast demand for ${params.medicineName ?? params.medicineId} in ${params.area}.`,
         whatWasIdentified: 'Insufficient time-series history for statistical forecasting.',
-        whyIdentified: `Found ${params.series.length} ordered time buckets and ${totalSignals} anonymized demand signals; at least ${minBucketsRequired} buckets and ${params.minThreshold} signals are required.`,
+        whyIdentified:
+          totalSignals < params.minThreshold
+            ? `Found ${params.series.length} ordered time buckets, but anonymized demand signals are below the minimum privacy threshold of ${params.minThreshold} (raw count suppressed).`
+            : `Found ${params.series.length} ordered time buckets; at least ${minBucketsRequired} buckets are required.`,
         influencingMetrics: {
           historicalBucketsCount: params.series.length,
           requiredBuckets: minBucketsRequired,
-          totalSignals,
+          totalSignals: totalSignals >= params.minThreshold ? totalSignals : null,
           minThreshold: params.minThreshold,
         },
         reportingPeriod: { fromDate: params.fromDate, toDate: params.toDate },

@@ -649,7 +649,7 @@ paths:
         - BearerAuth: []
       responses:
         '200':
-          description: Paginated shortage-risk indicators with explainability & data freshness
+          description: Paginated shortage-risk indicators with explainability & data freshness (sub-threshold demand/supply counts and derived ratios are masked as null)
 
   /api/v1/intelligence/shortages/{medicineId}:
     get:

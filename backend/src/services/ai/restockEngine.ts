@@ -95,6 +95,16 @@ export function computeSmartRestock(input: RestockInput): SmartRestockItem {
     );
   }
 
+  const hasSufficientAreaDemand = input.areaDemandSignals30d >= input.minThreshold;
+  const demandAvailabilityStatus =
+    input.areaDemandSignals30d === 0
+      ? 'ZERO_DEMAND'
+      : hasSufficientAreaDemand
+        ? 'SUFFICIENT'
+        : 'SUPPRESSED_BELOW_THRESHOLD';
+
+  const exposedAreaDailyRate = hasSufficientAreaDemand ? areaDailyDemandRate : null;
+
   return {
     pharmacyId: input.pharmacyId,
     medicineId: input.medicineId,
@@ -107,8 +117,9 @@ export function computeSmartRestock(input: RestockInput): SmartRestockItem {
     estimatedCoverageDays,
     basis,
     supportingMetrics: {
+      demandAvailabilityStatus,
       observedSalesUnits30d: input.observedSalesUnits30d,
-      areaDailyDemandRate,
+      areaDailyDemandRate: exposedAreaDailyRate,
       nearExpiryUnits30d: input.nearExpiryUnits30d,
       leadTimeDaysUsed: null, // Never invented
     },
@@ -124,11 +135,13 @@ export function computeSmartRestock(input: RestockInput): SmartRestockItem {
         suggestedRestockQuantity > 0
           ? `Restock review candidate: +${suggestedRestockQuantity} units (${basis}).`
           : 'No immediate restock needed.',
-      whyIdentified: `Eligible stock is ${input.currentEligibleStock} units (excluding ${input.reservedStockExcluded} reserved and ${input.expiredStockExcluded} expired), threshold is ${input.reorderThreshold}, and area demand rate is ${areaDailyDemandRate}/day.`,
+      whyIdentified: hasSufficientAreaDemand
+        ? `Eligible stock is ${input.currentEligibleStock} units (excluding ${input.reservedStockExcluded} reserved and ${input.expiredStockExcluded} expired), threshold is ${input.reorderThreshold}, and area demand rate is ${areaDailyDemandRate}/day.`
+        : `Eligible stock is ${input.currentEligibleStock} units (excluding ${input.reservedStockExcluded} reserved and ${input.expiredStockExcluded} expired), threshold is ${input.reorderThreshold}; area demand signals are below the privacy threshold (${input.minThreshold}) and suppressed.`,
       influencingMetrics: {
         currentEligibleStock: input.currentEligibleStock,
         reorderThreshold: input.reorderThreshold,
-        areaDemandSignals30d: input.areaDemandSignals30d,
+        areaDemandSignals30d: hasSufficientAreaDemand ? input.areaDemandSignals30d : null,
         observedSalesUnits30d: input.observedSalesUnits30d,
         suggestedRestockQuantity,
       },
