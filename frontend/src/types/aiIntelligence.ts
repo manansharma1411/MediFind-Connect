@@ -32,16 +32,23 @@ export interface ShortageRadarItem {
   explainability: ExplainableMetadata | null;
 }
 
+export interface PaginationMeta {
+  page?: number;
+  pageSize?: number;
+  total?: number;
+  totalPages?: number;
+}
+
 export interface SmartRestockItem {
   id: string;
   medicineId: string;
   medicineName: string;
-  currentEligibleStock: number;
-  suggestedRestockQuantity: number;
+  currentEligibleStock: number | null;
+  suggestedRestockQuantity: number | null;
   estimatedCoverageDays: number | null;
   recommendationReason: string;
   supportingData: string[];
-  demandBasis: "SEARCH_DEMAND" | "CONSUMPTION_AND_DEMAND";
+  demandBasis: "SEARCH_DEMAND" | "CONSUMPTION_AND_DEMAND" | "UNKNOWN";
   confidenceLevel: AiConfidenceLevel;
   sampleSufficient: boolean;
   generatedAt: string;

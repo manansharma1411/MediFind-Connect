@@ -32,6 +32,7 @@ import {
   getSmartRestockRecommendations,
 } from "@/services/aiIntelligenceService";
 import {
+  formatFreshnessDate,
   getConfidenceBadgeMeta,
   getDemandBasisLabel,
 } from "@/lib/aiIntelligenceUtils";
@@ -58,6 +59,7 @@ export default function SmartRestockPage() {
       try {
         const res = await getSmartRestockRecommendations(
           session,
+          {},
           controller.signal
         );
         if (controller.signal.aborted) return;
@@ -181,9 +183,15 @@ export default function SmartRestockPage() {
                             {item.recommendationReason}
                           </p>
                         </TableCell>
-                        <TableCell>{item.currentEligibleStock}</TableCell>
+                        <TableCell>
+                          {typeof item.currentEligibleStock === "number"
+                            ? item.currentEligibleStock
+                            : "—"}
+                        </TableCell>
                         <TableCell className="font-bold text-teal-800">
-                          +{item.suggestedRestockQuantity}
+                          {typeof item.suggestedRestockQuantity === "number"
+                            ? `+${item.suggestedRestockQuantity}`
+                            : "—"}
                         </TableCell>
                         <TableCell>
                           {typeof item.estimatedCoverageDays === "number"
@@ -225,8 +233,7 @@ export default function SmartRestockPage() {
                     Review Summary — {selected.medicineName}
                   </CardTitle>
                   <CardDescription>
-                    Generated:{" "}
-                    {new Date(selected.generatedAt).toLocaleString()} ·{" "}
+                    Generated: {formatFreshnessDate(selected.generatedAt)} ·{" "}
                     {getDemandBasisLabel(selected.demandBasis)}
                   </CardDescription>
                 </CardHeader>

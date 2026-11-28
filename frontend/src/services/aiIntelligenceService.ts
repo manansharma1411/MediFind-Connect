@@ -4,10 +4,23 @@ import type { PharmacySession } from "../types/pharmacy.ts";
 import type {
   AiOverviewSummary,
   DemandForecastData,
+  PaginationMeta,
   ShortageRadarItem,
   SmartRestockItem,
   SupplyDemandMatchItem,
 } from "../types/aiIntelligence.ts";
+import {
+  extractPaginatedItems,
+  mapForecastResponse,
+  mapMatchItem,
+  mapRestockItem,
+  mapShortageItem,
+  type BackendForecastResponse,
+  type BackendMatchItem,
+  type BackendPaginatedResponse,
+  type BackendRestockItem,
+  type BackendShortageItem,
+} from "../lib/aiIntelligenceUtils.ts";
 import {
   PREVIEW_AI_OVERVIEW,
   PREVIEW_DEMAND_FORECAST,
@@ -18,6 +31,7 @@ import {
 
 export interface AiServiceResult<T> {
   data: T | null;
+  pagination?: PaginationMeta;
   source: "live" | "preview" | "unavailable";
   notice?: string;
 }
@@ -49,7 +63,7 @@ function authHeaders(session: PharmacySession): HeadersInit {
 
 export async function getShortageRadar(
   session: PharmacySession,
-  params: { area?: string } = {},
+  params: { area?: string; page?: number; pageSize?: number } = {},
   signal?: AbortSignal
 ): Promise<AiServiceResult<ShortageRadarItem[]>> {
   if (session.isPreviewSession) {
@@ -63,14 +77,27 @@ export async function getShortageRadar(
 
   const qs = new URLSearchParams();
   if (params.area && params.area !== "all") qs.set("area", params.area);
+  if (typeof params.page === "number") qs.set("page", String(params.page));
+  if (typeof params.pageSize === "number") {
+    qs.set("pageSize", String(params.pageSize));
+  }
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
 
   try {
-    const res = await apiClient.get<ApiResponse<ShortageRadarItem[]>>(
-      `/api/v1/intelligence/shortages${suffix}`,
-      { headers: authHeaders(session), signal }
-    );
-    return { data: res.data, source: "live" };
+    const res = await apiClient.get<
+      ApiResponse<
+        BackendPaginatedResponse<BackendShortageItem> | BackendShortageItem[]
+      >
+    >(`/api/v1/intelligence/shortages${suffix}`, {
+      headers: authHeaders(session),
+      signal,
+    });
+    const { items, pagination } = extractPaginatedItems(res.data);
+    return {
+      data: items.map(mapShortageItem),
+      pagination,
+      source: "live",
+    };
   } catch (err) {
     if (isCancelled(err) || !isEndpointUnavailable(err)) throw err;
     return {
@@ -100,11 +127,14 @@ export async function getShortageDetails(
   }
 
   try {
-    const res = await apiClient.get<ApiResponse<ShortageRadarItem>>(
+    const res = await apiClient.get<ApiResponse<BackendShortageItem>>(
       `/api/v1/intelligence/shortages/${encodeURIComponent(medicineId)}`,
       { headers: authHeaders(session), signal }
     );
-    return { data: res.data, source: "live" };
+    return {
+      data: res.data ? mapShortageItem(res.data) : null,
+      source: "live",
+    };
   } catch (err) {
     if (isCancelled(err) || !isEndpointUnavailable(err)) throw err;
     return {
@@ -118,6 +148,7 @@ export async function getShortageDetails(
 
 export async function getSmartRestockRecommendations(
   session: PharmacySession,
+  params: { page?: number; pageSize?: number } = {},
   signal?: AbortSignal
 ): Promise<AiServiceResult<SmartRestockItem[]>> {
   if (session.isPreviewSession) {
@@ -129,12 +160,28 @@ export async function getSmartRestockRecommendations(
     };
   }
 
+  const qs = new URLSearchParams();
+  if (typeof params.page === "number") qs.set("page", String(params.page));
+  if (typeof params.pageSize === "number") {
+    qs.set("pageSize", String(params.pageSize));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+
   try {
-    const res = await apiClient.get<ApiResponse<SmartRestockItem[]>>(
-      "/api/v1/pharmacies/me/intelligence/restock",
-      { headers: authHeaders(session), signal }
-    );
-    return { data: res.data, source: "live" };
+    const res = await apiClient.get<
+      ApiResponse<
+        BackendPaginatedResponse<BackendRestockItem> | BackendRestockItem[]
+      >
+    >(`/api/v1/pharmacies/me/intelligence/restock${suffix}`, {
+      headers: authHeaders(session),
+      signal,
+    });
+    const { items, pagination } = extractPaginatedItems(res.data);
+    return {
+      data: items.map(mapRestockItem),
+      pagination,
+      source: "live",
+    };
   } catch (err) {
     if (isCancelled(err) || !isEndpointUnavailable(err)) throw err;
     return {
@@ -164,11 +211,14 @@ export async function getSmartRestockDetails(
   }
 
   try {
-    const res = await apiClient.get<ApiResponse<SmartRestockItem>>(
+    const res = await apiClient.get<ApiResponse<BackendRestockItem>>(
       `/api/v1/pharmacies/me/intelligence/restock/${encodeURIComponent(medicineId)}`,
       { headers: authHeaders(session), signal }
     );
-    return { data: res.data, source: "live" };
+    return {
+      data: res.data ? mapRestockItem(res.data) : null,
+      source: "live",
+    };
   } catch (err) {
     if (isCancelled(err) || !isEndpointUnavailable(err)) throw err;
     return {
@@ -202,15 +252,18 @@ export async function getDemandForecast(
   const qs = new URLSearchParams();
   if (params.medicineId) qs.set("medicineId", params.medicineId);
   if (params.area && params.area !== "all") qs.set("area", params.area);
-  if (params.horizonDays) qs.set("horizonDays", String(params.horizonDays));
+  if (params.horizonDays) qs.set("horizonPeriods", String(params.horizonDays));
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
 
   try {
-    const res = await apiClient.get<ApiResponse<DemandForecastData>>(
+    const res = await apiClient.get<ApiResponse<BackendForecastResponse>>(
       `/api/v1/intelligence/forecast${suffix}`,
       { headers: authHeaders(session), signal }
     );
-    return { data: res.data, source: "live" };
+    return {
+      data: res.data ? mapForecastResponse(res.data) : null,
+      source: "live",
+    };
   } catch (err) {
     if (isCancelled(err) || !isEndpointUnavailable(err)) throw err;
     return {
@@ -224,7 +277,7 @@ export async function getDemandForecast(
 
 export async function getSupplyDemandMatches(
   session: PharmacySession,
-  params: { area?: string } = {},
+  params: { area?: string; page?: number; pageSize?: number } = {},
   signal?: AbortSignal
 ): Promise<AiServiceResult<SupplyDemandMatchItem[]>> {
   if (session.isPreviewSession) {
@@ -238,14 +291,27 @@ export async function getSupplyDemandMatches(
 
   const qs = new URLSearchParams();
   if (params.area && params.area !== "all") qs.set("area", params.area);
+  if (typeof params.page === "number") qs.set("page", String(params.page));
+  if (typeof params.pageSize === "number") {
+    qs.set("pageSize", String(params.pageSize));
+  }
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
 
   try {
-    const res = await apiClient.get<ApiResponse<SupplyDemandMatchItem[]>>(
-      `/api/v1/intelligence/matches${suffix}`,
-      { headers: authHeaders(session), signal }
-    );
-    return { data: res.data, source: "live" };
+    const res = await apiClient.get<
+      ApiResponse<
+        BackendPaginatedResponse<BackendMatchItem> | BackendMatchItem[]
+      >
+    >(`/api/v1/intelligence/matches${suffix}`, {
+      headers: authHeaders(session),
+      signal,
+    });
+    const { items, pagination } = extractPaginatedItems(res.data);
+    return {
+      data: items.map(mapMatchItem),
+      pagination,
+      source: "live",
+    };
   } catch (err) {
     if (isCancelled(err) || !isEndpointUnavailable(err)) throw err;
     return {
@@ -272,7 +338,7 @@ export async function getAiOverview(
 
   const [shortagesRes, restockRes, matchesRes] = await Promise.all([
     getShortageRadar(session, {}, signal),
-    getSmartRestockRecommendations(session, signal),
+    getSmartRestockRecommendations(session, {}, signal),
     getSupplyDemandMatches(session, {}, signal),
   ]);
 
@@ -299,16 +365,26 @@ export async function getAiOverview(
       ? shortages.filter((s) => s.riskCategory === "HIGH").length
       : null;
 
+  const latestFreshness =
+    shortages.find((s) => s.explainability?.dataFreshnessAt)?.explainability
+      ?.dataFreshnessAt ??
+    restocks.find((r) => r.generatedAt)?.generatedAt ??
+    null;
+
   return {
     data: {
       highRiskMedicineCount: highRiskCount,
       restockRecommendationCount:
-        restockRes.source === "live" ? restocks.length : null,
+        restockRes.source === "live"
+          ? restockRes.pagination?.total ?? restocks.length
+          : null,
       forecastHighlights: [],
       supplyDemandOpportunityCount:
-        matchesRes.source === "live" ? matches.length : null,
+        matchesRes.source === "live"
+          ? matchesRes.pagination?.total ?? matches.length
+          : null,
       latestUpdates: [],
-      dataFreshnessAt: null,
+      dataFreshnessAt: latestFreshness,
       sampleSufficient: shortages.some((s) => s.sampleSufficient),
       insufficiencyReason:
         shortages.length === 0 && restocks.length === 0 && matches.length === 0
