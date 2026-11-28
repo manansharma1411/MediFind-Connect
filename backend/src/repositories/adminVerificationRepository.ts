@@ -64,6 +64,7 @@ export interface IAdminVerificationRepository {
     adminUserId: string;
     action: 'APPROVE' | 'REJECT';
     reason?: string;
+    isVerifiedAdmin?: boolean;
   }): Promise<VerifyPharmacyAtomicResult>;
 }
 
@@ -195,6 +196,7 @@ export class SupabaseAdminVerificationRepository
     adminUserId: string;
     action: 'APPROVE' | 'REJECT';
     reason?: string;
+    isVerifiedAdmin?: boolean;
   }): Promise<VerifyPharmacyAtomicResult> {
     const client = this.getClient();
     const { data, error } = await client.rpc('verify_pharmacy_license_atomic', {
@@ -202,6 +204,7 @@ export class SupabaseAdminVerificationRepository
       p_admin_user_id: params.adminUserId,
       p_action: params.action,
       p_reason: params.reason ?? null,
+      p_is_verified_admin: params.isVerifiedAdmin ?? false,
     });
 
     if (error) {

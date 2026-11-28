@@ -49,7 +49,8 @@ export class AdminVerificationService {
   async verifyPharmacy(
     pharmacyId: string,
     adminUserId: string,
-    input: { action: 'APPROVE' | 'REJECT'; reason?: string }
+    input: { action: 'APPROVE' | 'REJECT'; reason?: string },
+    options?: { isVerifiedAdmin?: boolean }
   ) {
     const pharmacy = await this.repo.getPharmacyVerificationById(pharmacyId);
     if (!pharmacy) {
@@ -60,7 +61,8 @@ export class AdminVerificationService {
       );
     }
 
-    if (pharmacy.ownerUserId && pharmacy.ownerUserId === adminUserId) {
+    // Only block if caller is NOT a verified platform administrator
+    if (!options?.isVerifiedAdmin && pharmacy.ownerUserId && pharmacy.ownerUserId === adminUserId) {
       throw new AppError(
         403,
         'FORBIDDEN',
@@ -84,6 +86,7 @@ export class AdminVerificationService {
       adminUserId,
       action: input.action,
       reason: input.reason,
+      isVerifiedAdmin: Boolean(options?.isVerifiedAdmin),
     });
   }
 }
