@@ -736,6 +736,19 @@ paths:
         '403':
           description: Administrator privileges required
 
+  /api/v1/admin/pharmacies:
+    get:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] List all registered pharmacies with search, status filter, sorting, and pagination (admin only)'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Paginated list of pharmacies (no passwords or auth secrets)
+        '403':
+          description: Administrator privileges required
+
   /api/v1/admin/pharmacies/pending:
     get:
       tags:
@@ -748,6 +761,42 @@ paths:
           description: Paginated list of pharmacies filtered by verificationStatus (default PENDING)
         '403':
           description: Administrator privileges required
+
+  /api/v1/admin/pharmacies/{id}:
+    get:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Retrieve detailed store, license, operational status, and audit history for a pharmacy (admin only)'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Pharmacy details and audit history
+
+  /api/v1/admin/pharmacies/{id}/status:
+    patch:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Suspend or reactivate a pharmacy with mandatory audit reason (admin only)'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Operational status updated and recorded in pharmacy_verification_events
 
   /api/v1/admin/pharmacies/{id}/verification:
     get:

@@ -47,7 +47,25 @@ export interface VerifyPharmacyAtomicResult {
   rejectionReason: string | null;
 }
 
+export interface UpdatePharmacyStatusAtomicResult {
+  pharmacyId: string;
+  previousStatus: VerificationStatus;
+  verificationStatus: VerificationStatus;
+  isActive: boolean;
+  isLicensedVerified: boolean;
+  reason: string;
+}
+
 export interface IAdminVerificationRepository {
+  listAllPharmacies(params: {
+    q?: string;
+    status: 'ALL' | VerificationStatus;
+    isActive: 'all' | 'true' | 'false';
+    sortBy: 'createdAt' | 'name' | 'verificationStatus';
+    sortOrder: 'asc' | 'desc';
+    page: number;
+    limit: number;
+  }): Promise<{ items: AdminPharmacyVerificationRecord[]; total: number }>;
   listPharmaciesByVerificationStatus(params: {
     status: VerificationStatus;
     page: number;
@@ -66,6 +84,13 @@ export interface IAdminVerificationRepository {
     reason?: string;
     isVerifiedAdmin?: boolean;
   }): Promise<VerifyPharmacyAtomicResult>;
+  updatePharmacyOperationalStatusAtomic(params: {
+    pharmacyId: string;
+    adminUserId: string;
+    action: 'SUSPEND' | 'REACTIVATE';
+    reason: string;
+    isVerifiedAdmin?: boolean;
+  }): Promise<UpdatePharmacyStatusAtomicResult>;
 }
 
 export class SupabaseAdminVerificationRepository
@@ -116,6 +141,58 @@ export class SupabaseAdminVerificationRepository
         : null,
       createdAt: String(row.created_at),
       updatedAt: String(row.updated_at),
+    };
+  }
+
+  async listAllPharmacies(params: {
+    q?: string;
+    status: 'ALL' | VerificationStatus;
+    isActive: 'all' | 'true' | 'false';
+    sortBy: 'createdAt' | 'name' | 'verificationStatus';
+    sortOrder: 'asc' | 'desc';
+    page: number;
+    limit: number;
+  }): Promise<{ items: AdminPharmacyVerificationRecord[]; total: number }> {
+    const client = this.getClient();
+    const from = (params.page - 1) * params.limit;
+    const to = from + params.limit - 1;
+
+    const sortColumnMap: Record<string, string> = {
+      createdAt: 'created_at',
+      name: 'name',
+      verificationStatus: 'verification_status',
+    };
+    const orderCol = sortColumnMap[params.sortBy] ?? 'created_at';
+
+    let query = client
+      .from('pharmacies')
+      .select('*, pharmacy_locations(address, area, city, state, pincode)', {
+        count: 'exact',
+      });
+
+    if (params.status !== 'ALL') {
+      query = query.eq('verification_status', params.status);
+    }
+    if (params.isActive === 'true') {
+      query = query.eq('is_active', true);
+    } else if (params.isActive === 'false') {
+      query = query.eq('is_active', false);
+    }
+    if (params.q && params.q.trim().length > 0) {
+      query = query.ilike('name', `%${params.q.trim()}%`);
+    }
+
+    const { data, error, count } = await query
+      .order(orderCol, { ascending: params.sortOrder === 'asc' })
+      .range(from, to);
+
+    if (error) {
+      throw new AppError(500, 'DATABASE_ERROR', error.message);
+    }
+
+    return {
+      items: (data ?? []).map((r) => this.mapRow(r as Record<string, any>)),
+      total: Number(count ?? 0),
     };
   }
 
@@ -222,6 +299,39 @@ export class SupabaseAdminVerificationRepository
     }
 
     return data as VerifyPharmacyAtomicResult;
+  }
+
+  async updatePharmacyOperationalStatusAtomic(params: {
+    pharmacyId: string;
+    adminUserId: string;
+    action: 'SUSPEND' | 'REACTIVATE';
+    reason: string;
+    isVerifiedAdmin?: boolean;
+  }): Promise<UpdatePharmacyStatusAtomicResult> {
+    const client = this.getClient();
+    const { data, error } = await client.rpc('update_pharmacy_operational_status_atomic', {
+      p_pharmacy_id: params.pharmacyId,
+      p_admin_user_id: params.adminUserId,
+      p_action: params.action,
+      p_reason: params.reason,
+      p_is_verified_admin: params.isVerifiedAdmin ?? false,
+    });
+
+    if (error) {
+      const msg = error.message || '';
+      if (msg.includes('PHARMACY_NOT_FOUND')) {
+        throw new AppError(404, 'RESOURCE_NOT_FOUND', msg);
+      }
+      if (msg.includes('FORBIDDEN')) {
+        throw new AppError(403, 'FORBIDDEN', msg);
+      }
+      if (msg.includes('VALIDATION_ERROR')) {
+        throw new AppError(400, 'VALIDATION_ERROR', msg);
+      }
+      throw new AppError(500, 'DATABASE_ERROR', msg);
+    }
+
+    return data as UpdatePharmacyStatusAtomicResult;
   }
 }
 
