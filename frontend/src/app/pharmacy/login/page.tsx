@@ -45,15 +45,21 @@ export default function PharmacyLoginPage() {
     try {
       const session = await loginPharmacy(email.trim(), password);
       setSession(session);
-      router.push("/pharmacy/dashboard");
+      if (!session.pharmacyId) {
+        router.push("/pharmacy/register");
+      } else {
+        router.push("/pharmacy/dashboard");
+      }
     } catch (err) {
       const eObj = err as Partial<ApiError>;
-      if (eObj.status === 404 || eObj.status === 501 || eObj.code === "NETWORK_ERROR") {
+      if (eObj.code === "SUPABASE_NOT_CONFIGURED") {
         setApiError(
-          "Backend endpoint POST /api/v1/auth/login is not yet available. You can inspect the portal using UI Preview Mode below."
+          "Supabase Auth environment variables are not configured. You can inspect the portal using UI Preview Mode below."
         );
       } else {
-        setApiError(eObj.message || "Authentication failed. Check your credentials.");
+        setApiError(
+          eObj.message || "Authentication failed. Check your credentials."
+        );
       }
     } finally {
       setIsSubmitting(false);
