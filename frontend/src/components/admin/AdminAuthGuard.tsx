@@ -29,10 +29,10 @@ export function AdminAuthGuard({ children }: { children: React.ReactNode }) {
               pharmacy registrations and drug licence records.
             </p>
             <Link
-              href="/pharmacy/login"
+              href="/admin/login"
               className="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors shadow-xs"
             >
-              <span>Go to Sign In</span>
+              <span>Go to Administrator Login</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </CardContent>

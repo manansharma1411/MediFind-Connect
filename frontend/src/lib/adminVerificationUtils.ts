@@ -4,6 +4,19 @@ import type {
   AdminVerificationStatus,
 } from "../types/adminVerification.ts";
 
+export function getAuthorizedAdminEmail(): string {
+  return (
+    process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() ||
+    "admin676@gmail.com"
+  );
+}
+
+export function isAuthorizedAdminEmail(email: string): boolean {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return false;
+  return normalized === getAuthorizedAdminEmail();
+}
+
 export function isAuthorizedAdminSession(
   session: PharmacySession | null
 ): boolean {

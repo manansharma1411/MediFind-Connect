@@ -1,5 +1,9 @@
 import { apiClient } from "./apiClient.ts";
-import { isAuthorizedAdminSession } from "../lib/adminVerificationUtils.ts";
+import { signInWithPassword } from "./supabaseAuthClient.ts";
+import {
+  isAuthorizedAdminEmail,
+  isAuthorizedAdminSession,
+} from "../lib/adminVerificationUtils.ts";
 import type { ApiError, ApiResponse } from "../types/api.ts";
 import type { PharmacySession } from "../types/pharmacy.ts";
 import type {
@@ -57,6 +61,65 @@ function isCancelled(err: unknown): boolean {
 function authHeaders(session: PharmacySession): HeadersInit {
   return {
     Authorization: `Bearer ${session.accessToken}`,
+  };
+}
+
+export async function loginAdmin(
+  email: string,
+  password: string,
+  signal?: AbortSignal
+): Promise<PharmacySession> {
+  const trimmedEmail = email.trim();
+  if (!isAuthorizedAdminEmail(trimmedEmail)) {
+    const err: ApiError = {
+      status: 403,
+      code: "UNAUTHORIZED_ADMIN_EMAIL",
+      message:
+        "This email address is not authorized for Super Admin Portal access.",
+    };
+    throw err;
+  }
+
+  const auth = await signInWithPassword(trimmedEmail, password, signal);
+
+  try {
+    await apiClient.get<ApiResponse<AdminVerificationListResponse>>(
+      "/api/v1/admin/pharmacies/pending?page=1&limit=1",
+      {
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+        signal,
+      }
+    );
+  } catch (err) {
+    const apiErr = err as Partial<ApiError>;
+    if (apiErr.status === 403) {
+      const forbiddenErr: ApiError = {
+        status: 403,
+        code: "FORBIDDEN",
+        message: "Your account does not have administrator permissions.",
+      };
+      throw forbiddenErr;
+    }
+    if (apiErr.status === 401) {
+      const unauthErr: ApiError = {
+        status: 401,
+        code: "UNAUTHORIZED",
+        message: "Your session is invalid or expired. Please sign in again.",
+      };
+      throw unauthErr;
+    }
+    throw err;
+  }
+
+  return {
+    accessToken: auth.accessToken,
+    userId: auth.userId,
+    email: auth.email,
+    displayName: "Platform Administrator",
+    role: "network_admin",
+    pharmacyId: "",
+    pharmacyName: "MediFind Connect Super Admin",
+    isPreviewSession: false,
   };
 }
 
@@ -139,7 +202,10 @@ export async function submitPharmacyVerificationDecision(
     ApiResponse<AdminPharmacyVerificationRecord>
   >(
     `/api/v1/admin/pharmacies/${encodeURIComponent(pharmacyId)}/verification`,
-    input,
+    {
+      action: input.decision === "VERIFIED" ? "APPROVE" : "REJECT",
+      ...(input.reason ? { reason: input.reason } : {}),
+    },
     { headers: authHeaders(validSession), signal }
   );
 
