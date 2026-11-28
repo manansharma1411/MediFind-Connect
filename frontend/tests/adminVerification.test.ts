@@ -226,6 +226,88 @@ test("getAdminDataStatusBadge distinguishes Loading, API Unavailable, No Records
   );
 });
 
+test("submitPharmacyVerificationDecision sends PATCH { action: REJECT, reason } and handles 404/403/500", async () => {
+  const originalFetch = globalThis.fetch;
+  const prevApi = process.env.NEXT_PUBLIC_API_BASE_URL;
+  process.env.NEXT_PUBLIC_API_BASE_URL = "https://backend.example.test";
+
+  try {
+    let sentMethod: string | undefined;
+    let sentUrl = "";
+    let sentBody: Record<string, unknown> = {};
+    let sentAuth: string | null = null;
+
+    globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      sentUrl = typeof input === "string" ? input : input.toString();
+      sentMethod = init?.method;
+      sentAuth = new Headers(init?.headers).get("Authorization");
+      sentBody =
+        typeof init?.body === "string"
+          ? (JSON.parse(init.body) as Record<string, unknown>)
+          : {};
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Pharmacy license verification rejected.",
+          data: {
+            pharmacyId: "pharm-100",
+            previousStatus: "PENDING",
+            verificationStatus: "REJECTED",
+            isLicensedVerified: false,
+            rejectionReason: "Drug licence number could not be verified.",
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    };
+
+    const result = await submitPharmacyVerificationDecision(
+      ADMIN_SESSION,
+      "pharm-100",
+      {
+        decision: "REJECTED",
+        reason: "Drug licence number could not be verified.",
+      }
+    );
+
+    assert.equal(sentMethod, "PATCH");
+    assert.equal(
+      sentUrl,
+      "https://backend.example.test/api/v1/admin/pharmacies/pharm-100/verification"
+    );
+    assert.equal(sentAuth, "Bearer admin-jwt-123");
+    assert.equal(sentBody.action, "REJECT");
+    assert.equal(sentBody.reason, "Drug licence number could not be verified.");
+    assert.equal(result.verificationStatus, "REJECTED");
+    assert.equal(result.isLicensedVerified, false);
+
+    // Invalid pharmacy ID -> 404
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          success: false,
+          error: { code: "RESOURCE_NOT_FOUND", message: "Pharmacy not found." },
+        }),
+        { status: 404, headers: { "content-type": "application/json" } }
+      );
+
+    await assert.rejects(
+      () =>
+        submitPharmacyVerificationDecision(ADMIN_SESSION, "missing-id", {
+          decision: "REJECTED",
+          reason: "Invalid pharmacy record.",
+        }),
+      (err: { status?: number; code?: string }) =>
+        err.status === 404 && err.code === "RESOURCE_NOT_FOUND"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (prevApi === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    else process.env.NEXT_PUBLIC_API_BASE_URL = prevApi;
+  }
+});
+
 test("isAuthorizedAdminEmail restricts to configured admin email and loginAdmin verifies via Supabase + backend", async () => {
   assert.equal(isAuthorizedAdminEmail("admin676@gmail.com"), true);
   assert.equal(isAuthorizedAdminEmail("  ADMIN676@GMAIL.COM "), true);
@@ -452,4 +534,86 @@ test("getAdminDataStatusBadge distinguishes Loading, API Unavailable, No Records
     }).label,
     "Live Data"
   );
+});
+
+test("submitPharmacyVerificationDecision sends PATCH { action: REJECT, reason } and handles 404/403/500", async () => {
+  const originalFetch = globalThis.fetch;
+  const prevApi = process.env.NEXT_PUBLIC_API_BASE_URL;
+  process.env.NEXT_PUBLIC_API_BASE_URL = "https://backend.example.test";
+
+  try {
+    let sentMethod: string | undefined;
+    let sentUrl = "";
+    let sentBody: Record<string, unknown> = {};
+    let sentAuth: string | null = null;
+
+    globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      sentUrl = typeof input === "string" ? input : input.toString();
+      sentMethod = init?.method;
+      sentAuth = new Headers(init?.headers).get("Authorization");
+      sentBody =
+        typeof init?.body === "string"
+          ? (JSON.parse(init.body) as Record<string, unknown>)
+          : {};
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Pharmacy license verification rejected.",
+          data: {
+            pharmacyId: "pharm-100",
+            previousStatus: "PENDING",
+            verificationStatus: "REJECTED",
+            isLicensedVerified: false,
+            rejectionReason: "Drug licence number could not be verified.",
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    };
+
+    const result = await submitPharmacyVerificationDecision(
+      ADMIN_SESSION,
+      "pharm-100",
+      {
+        decision: "REJECTED",
+        reason: "Drug licence number could not be verified.",
+      }
+    );
+
+    assert.equal(sentMethod, "PATCH");
+    assert.equal(
+      sentUrl,
+      "https://backend.example.test/api/v1/admin/pharmacies/pharm-100/verification"
+    );
+    assert.equal(sentAuth, "Bearer admin-jwt-123");
+    assert.equal(sentBody.action, "REJECT");
+    assert.equal(sentBody.reason, "Drug licence number could not be verified.");
+    assert.equal(result.verificationStatus, "REJECTED");
+    assert.equal(result.isLicensedVerified, false);
+
+    // Invalid pharmacy ID -> 404
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          success: false,
+          error: { code: "RESOURCE_NOT_FOUND", message: "Pharmacy not found." },
+        }),
+        { status: 404, headers: { "content-type": "application/json" } }
+      );
+
+    await assert.rejects(
+      () =>
+        submitPharmacyVerificationDecision(ADMIN_SESSION, "missing-id", {
+          decision: "REJECTED",
+          reason: "Invalid pharmacy record.",
+        }),
+      (err: { status?: number; code?: string }) =>
+        err.status === 404 && err.code === "RESOURCE_NOT_FOUND"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (prevApi === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    else process.env.NEXT_PUBLIC_API_BASE_URL = prevApi;
+  }
 });

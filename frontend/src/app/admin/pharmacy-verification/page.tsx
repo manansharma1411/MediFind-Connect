@@ -79,10 +79,14 @@ function AdminPharmacyVerificationContent() {
 
   const [approveTarget, setApproveTarget] =
     useState<AdminPharmacyVerificationRecord | null>(null);
+  const [approveError, setApproveError] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] =
     useState<AdminPharmacyVerificationRecord | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [rejectionError, setRejectionError] = useState<string | null>(null);
+  const [rejectionSubmitError, setRejectionSubmitError] = useState<
+    string | null
+  >(null);
   const [isMutating, setIsMutating] = useState(false);
 
   const [toast, setToast] = useState<{
@@ -171,6 +175,7 @@ function AdminPharmacyVerificationContent() {
   const handleConfirmApprove = async () => {
     if (!approveTarget || isMutating) return;
     setIsMutating(true);
+    setApproveError(null);
     try {
       await submitPharmacyVerificationDecision(session, approveTarget.id, {
         decision: "VERIFIED",
@@ -188,10 +193,12 @@ function AdminPharmacyVerificationContent() {
         logout();
         return;
       }
+      const msg = apiErr.message || "Unable to approve pharmacy.";
+      setApproveError(msg);
       setToast({
         variant: "warning",
         title: "Approval Failed",
-        description: apiErr.message || "Unable to approve pharmacy.",
+        description: msg,
       });
     } finally {
       setIsMutating(false);
@@ -202,6 +209,7 @@ function AdminPharmacyVerificationContent() {
     if (!rejectTarget || isMutating) return;
     const reasonErr = validateRejectionReason(rejectionReason);
     setRejectionError(reasonErr);
+    setRejectionSubmitError(null);
     if (reasonErr) return;
 
     setIsMutating(true);
@@ -218,6 +226,7 @@ function AdminPharmacyVerificationContent() {
       setRejectTarget(null);
       setRejectionReason("");
       setRejectionError(null);
+      setRejectionSubmitError(null);
       await loadDashboard();
     } catch (err) {
       const apiErr = err as Partial<ApiError>;
@@ -225,10 +234,12 @@ function AdminPharmacyVerificationContent() {
         logout();
         return;
       }
+      const msg = apiErr.message || "Unable to reject pharmacy.";
+      setRejectionSubmitError(msg);
       setToast({
         variant: "warning",
         title: "Rejection Failed",
-        description: apiErr.message || "Unable to reject pharmacy.",
+        description: msg,
       });
     } finally {
       setIsMutating(false);
@@ -435,7 +446,10 @@ function AdminPharmacyVerificationContent() {
                               <>
                                 <Button
                                   size="sm"
-                                  onClick={() => setApproveTarget(item)}
+                                  onClick={() => {
+                                    setApproveTarget(item);
+                                    setApproveError(null);
+                                  }}
                                   leftIcon={
                                     <CheckCircle2 className="w-3.5 h-3.5" />
                                   }
@@ -449,6 +463,7 @@ function AdminPharmacyVerificationContent() {
                                     setRejectTarget(item);
                                     setRejectionReason("");
                                     setRejectionError(null);
+                                    setRejectionSubmitError(null);
                                   }}
                                   leftIcon={<XCircle className="w-3.5 h-3.5" />}
                                 >
@@ -619,13 +634,22 @@ function AdminPharmacyVerificationContent() {
           </>
         }
       >
-        <p className="text-sm text-slate-700">
-          Approve <strong>{approveTarget?.name}</strong> (Licence:{" "}
-          <span className="font-mono">
-            {approveTarget?.licenseNumber ?? "N/A"}
-          </span>
-          )?
-        </p>
+        <div className="space-y-3">
+          {approveError && (
+            <Toast
+              variant="warning"
+              title="Approval Failed"
+              description={approveError}
+            />
+          )}
+          <p className="text-sm text-slate-700">
+            Approve <strong>{approveTarget?.name}</strong> (Licence:{" "}
+            <span className="font-mono">
+              {approveTarget?.licenseNumber ?? "N/A"}
+            </span>
+            )?
+          </p>
+        </div>
       </Modal>
 
       {/* Rejection Reason Modal */}
@@ -654,29 +678,39 @@ function AdminPharmacyVerificationContent() {
           </>
         }
       >
-        <div className="space-y-2">
-          <label
-            htmlFor="rejection-reason"
-            className="block text-sm font-semibold text-slate-700"
-          >
-            Rejection Reason
-          </label>
-          <textarea
-            id="rejection-reason"
-            rows={3}
-            value={rejectionReason}
-            onChange={(e) => {
-              setRejectionReason(e.target.value);
-              if (rejectionError) setRejectionError(null);
-            }}
-            placeholder="e.g. Drug licence number could not be matched with state registry."
-            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-          />
-          {rejectionError && (
-            <p className="text-xs font-medium text-rose-600">
-              {rejectionError}
-            </p>
+        <div className="space-y-3">
+          {rejectionSubmitError && (
+            <Toast
+              variant="warning"
+              title="Rejection Failed"
+              description={rejectionSubmitError}
+            />
           )}
+          <div className="space-y-2">
+            <label
+              htmlFor="rejection-reason"
+              className="block text-sm font-semibold text-slate-700"
+            >
+              Rejection Reason
+            </label>
+            <textarea
+              id="rejection-reason"
+              rows={3}
+              value={rejectionReason}
+              onChange={(e) => {
+                setRejectionReason(e.target.value);
+                if (rejectionError) setRejectionError(null);
+                if (rejectionSubmitError) setRejectionSubmitError(null);
+              }}
+              placeholder="e.g. Drug licence number could not be matched with state registry."
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            {rejectionError && (
+              <p className="text-xs font-medium text-rose-600">
+                {rejectionError}
+              </p>
+            )}
+          </div>
         </div>
       </Modal>
     </div>
