@@ -723,6 +723,19 @@ paths:
   # ============================================================================
   # ADMIN PHARMACY LICENSE VERIFICATION (OPERATIONAL - ADMIN ONLY)
   # ============================================================================
+  /api/v1/admin/me:
+    get:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Verify authenticated administrator identity and role (super_admin, network_admin, admin)'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Authenticated administrator profile
+        '403':
+          description: Administrator privileges required
+
   /api/v1/admin/pharmacies/pending:
     get:
       tags:

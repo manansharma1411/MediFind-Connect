@@ -21,7 +21,9 @@ import {
 import { AppError } from '../src/types/index.js';
 
 const ADMIN_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+const DB_ADMIN_ID = 'dddddddd-dddd-4ddd-8ddd-ddddddddddd4';
 const OWNER_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2';
+const PATIENT_ID = 'cccccccc-cccc-4ccc-8ccc-ccccccccccc3';
 const PHARM_ID = '11111111-1111-4111-8111-1111111111a1';
 const PHARM_OWNED_BY_ADMIN = '22222222-2222-4222-8222-2222222222b2';
 
@@ -199,10 +201,16 @@ const collabService = new CollaborationService(mockCollabRepo, mockPharmRepo);
 
 const mockTokenVerifier: TokenVerifier = async (token: string) => {
   if (token === 'token-admin') {
-    return { id: ADMIN_ID, email: 'admin@medifind.in', appRole: 'network_admin' };
+    return { id: ADMIN_ID, email: 'admin676@gmail.com', appRole: 'super_admin' };
+  }
+  if (token === 'token-db-admin') {
+    return { id: DB_ADMIN_ID, email: 'dbadmin@medifind.in', appRole: null };
   }
   if (token === 'token-owner') {
     return { id: OWNER_ID, email: 'owner@careplus.example.com', appRole: null };
+  }
+  if (token === 'token-patient') {
+    return { id: PATIENT_ID, email: 'patient@example.com', appRole: null };
   }
   return null;
 };
@@ -215,6 +223,8 @@ before(async () => {
     adminVerificationService: adminService,
     collaborationService: collabService,
     tokenVerifier: mockTokenVerifier,
+    adminRoleChecker: async (userId: string) =>
+      userId === DB_ADMIN_ID ? 'super_admin' : null,
   });
   await new Promise<void>((resolve) => {
     server = app.listen(0, '127.0.0.1', () => {
@@ -245,6 +255,26 @@ test('Admin verification: pending list, authz (401/403), self-approval block, re
     headers: { Authorization: 'Bearer token-owner' },
   });
   assert.equal(nonAdmin.status, 403);
+
+  // 2b. Patient user -> 403 on /admin/me and /admin/pharmacies/pending
+  const patientMe = await fetch(`${baseUrl}/api/v1/admin/me`, {
+    headers: { Authorization: 'Bearer token-patient' },
+  });
+  assert.equal(patientMe.status, 403);
+
+  // 2c. Authorized super_admin (app_metadata) & DB-backed admin (platform_administrators) -> 200 on /admin/me
+  const adminMe = await fetch(`${baseUrl}/api/v1/admin/me`, {
+    headers: { Authorization: 'Bearer token-admin' },
+  });
+  assert.equal(adminMe.status, 200);
+  const adminMeJson = await adminMe.json();
+  assert.equal(adminMeJson.data.role, 'super_admin');
+  assert.equal(adminMeJson.data.isSuperAdmin, true);
+
+  const dbAdminPending = await fetch(`${baseUrl}/api/v1/admin/pharmacies/pending`, {
+    headers: { Authorization: 'Bearer token-db-admin' },
+  });
+  assert.equal(dbAdminPending.status, 200);
 
   // 3. Unverified pharmacy is blocked from collaboration -> 403 PHARMACY_NOT_VERIFIED
   const unverifiedCollab = await fetch(`${baseUrl}/api/v1/collaboration/stock`, {

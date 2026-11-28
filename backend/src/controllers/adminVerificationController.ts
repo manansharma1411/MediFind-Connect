@@ -19,6 +19,28 @@ function getAdminUserId(req: Request): string {
 
 export function createAdminVerificationController(service: AdminVerificationService) {
   return {
+    getAdminProfile: async (
+      req: Request,
+      res: Response,
+      next: NextFunction
+    ): Promise<void> => {
+      try {
+        const adminUserId = getAdminUserId(req);
+        res.status(200).json({
+          success: true,
+          data: {
+            userId: adminUserId,
+            email: req.user?.email ?? null,
+            role: req.user?.appRole ?? 'super_admin',
+            isSuperAdmin: true,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err) {
+        next(err);
+      }
+    },
+
     listPendingPharmacies: async (
       req: Request,
       res: Response,
