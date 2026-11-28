@@ -8,13 +8,22 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { usePharmacyAuth } from "@/context/PharmacyAuthContext";
+import { LoadingSkeleton } from "@/components/ui/States";
 
 export function PharmacyAuthGuard({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { session, enterPreviewSession } = usePharmacyAuth();
+  const { session, isHydrated, enterPreviewSession } = usePharmacyAuth();
+
+  if (!isHydrated) {
+    return (
+      <PageContainer size="md" className="py-14 sm:py-20">
+        <LoadingSkeleton rows={4} />
+      </PageContainer>
+    );
+  }
 
   if (!session) {
     return (
