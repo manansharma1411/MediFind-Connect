@@ -56,6 +56,10 @@ export function evaluateShortageRisk(input: ShortageRiskInput): ShortageRadarIte
       : null;
 
   if (input.recentDemandSignals < input.minThreshold) {
+    const demandAvailabilityStatus =
+      input.recentDemandSignals === 0 ? 'ZERO_DEMAND' : 'SUPPRESSED_BELOW_THRESHOLD';
+    const supplyAvailabilityStatus = 'SUPPRESSED';
+
     return {
       medicineId: input.medicineId,
       medicineName: input.medicineName,
@@ -66,27 +70,32 @@ export function evaluateShortageRisk(input: ShortageRiskInput): ShortageRadarIte
       riskScore: null,
       estimatedRiskPeriodDays: null,
       supportingIndicators: {
-        recentDemandSignals: input.recentDemandSignals,
-        priorDemandSignals: input.priorDemandSignals,
-        demandGrowthRatePercent: growthRatePercent,
-        unmetDemandSignals: input.unmetDemandSignals,
-        unmetDemandRatio: unmetRatio,
-        eligibleSupplyAvailable: input.eligibleSupplyAvailable,
-        reservedStockExcluded: input.reservedStockExcluded,
-        expiredBatchesExcluded: input.expiredBatchesExcluded,
-        nearExpiryUnitsCount: input.nearExpiryUnitsCount,
-        participatingPharmaciesCount: input.participatingPharmaciesCount,
+        demandAvailabilityStatus,
+        supplyAvailabilityStatus,
+        recentDemandSignals: null,
+        priorDemandSignals: null,
+        demandGrowthRatePercent: null,
+        unmetDemandSignals: null,
+        unmetDemandRatio: null,
+        eligibleSupplyAvailable: null,
+        reservedStockExcluded: null,
+        expiredBatchesExcluded: null,
+        nearExpiryUnitsCount: null,
+        participatingPharmaciesCount: null,
       },
       algorithmVersion: AI_ALGORITHM_VERSION,
       generatedAt: nowIso,
       explanation: {
         summary: `Insufficient anonymized demand data for ${input.medicineName} in ${input.area}.`,
         whatWasIdentified: 'INSUFFICIENT_DATA for area shortage-risk classification.',
-        whyIdentified: `Observed ${input.recentDemandSignals} demand signals, below the minimum privacy/sufficiency threshold of ${input.minThreshold}.`,
+        whyIdentified:
+          input.recentDemandSignals === 0
+            ? `No anonymized demand signals were recorded in ${input.area} during the reporting window (minimum threshold: ${input.minThreshold}).`
+            : `Anonymized demand signals in ${input.area} are below the minimum privacy threshold of ${input.minThreshold}; raw sub-threshold counts and derived ratios are suppressed.`,
         influencingMetrics: {
-          recentDemandSignals: input.recentDemandSignals,
           minThreshold: input.minThreshold,
-          eligibleSupplyAvailable: input.eligibleSupplyAvailable,
+          demandAvailabilityStatus,
+          supplyAvailabilityStatus,
         },
         reportingPeriod: { fromDate: input.fromDate, toDate: input.toDate },
         dataFreshness: {
@@ -96,6 +105,7 @@ export function evaluateShortageRisk(input: ShortageRiskInput): ShortageRadarIte
         },
         confidence: 'INSUFFICIENT',
         limitations: [
+          'Sub-threshold demand and supply counts are suppressed to protect privacy and prevent differencing.',
           'Search volume alone is never used to claim a shortage.',
           'Area-level risk does not imply stockout at every individual pharmacy.',
         ],
@@ -154,6 +164,12 @@ export function evaluateShortageRisk(input: ShortageRiskInput): ShortageRadarIte
     confidence = 'MODERATE';
   }
 
+  const exposePrior = input.priorDemandSignals >= input.minThreshold;
+  const exposeUnmet =
+    input.unmetDemandSignals === 0 || input.unmetDemandSignals >= input.minThreshold;
+  const supplyAvailabilityStatus =
+    input.eligibleSupplyAvailable > 0 ? 'AVAILABLE' : 'NONE';
+
   return {
     medicineId: input.medicineId,
     medicineName: input.medicineName,
@@ -164,11 +180,13 @@ export function evaluateShortageRisk(input: ShortageRiskInput): ShortageRadarIte
     riskScore,
     estimatedRiskPeriodDays,
     supportingIndicators: {
+      demandAvailabilityStatus: 'SUFFICIENT',
+      supplyAvailabilityStatus,
       recentDemandSignals: input.recentDemandSignals,
-      priorDemandSignals: input.priorDemandSignals,
+      priorDemandSignals: exposePrior ? input.priorDemandSignals : null,
       demandGrowthRatePercent: growthRatePercent,
-      unmetDemandSignals: input.unmetDemandSignals,
-      unmetDemandRatio: unmetRatio,
+      unmetDemandSignals: exposeUnmet ? input.unmetDemandSignals : null,
+      unmetDemandRatio: exposeUnmet ? unmetRatio : null,
       eligibleSupplyAvailable: input.eligibleSupplyAvailable,
       reservedStockExcluded: input.reservedStockExcluded,
       expiredBatchesExcluded: input.expiredBatchesExcluded,
@@ -180,10 +198,12 @@ export function evaluateShortageRisk(input: ShortageRiskInput): ShortageRadarIte
     explanation: {
       summary: `${riskCategory} area shortage-risk indicator (score ${riskScore}) for ${input.medicineName} in ${input.area}.`,
       whatWasIdentified: `Area-level ${riskCategory} shortage-risk indicator (not proof of an actual stockout).`,
-      whyIdentified: `Combined unmet-demand ratio (${Math.round(unmetRatio * 100)}%), eligible local supply (${input.eligibleSupplyAvailable} units across ${input.participatingPharmaciesCount} pharmacies, excluding ${input.reservedStockExcluded} reserved units), and demand trend.`,
+      whyIdentified: exposeUnmet
+        ? `Combined unmet-demand ratio (${Math.round(unmetRatio * 100)}%), eligible local supply (${input.eligibleSupplyAvailable} units across ${input.participatingPharmaciesCount} pharmacies, excluding ${input.reservedStockExcluded} reserved units), and demand trend.`
+        : `Combined anonymized demand signals (${input.recentDemandSignals} signals), eligible local supply (${input.eligibleSupplyAvailable} units across ${input.participatingPharmaciesCount} pharmacies, excluding ${input.reservedStockExcluded} reserved units), and demand trend (sub-threshold unmet count suppressed).`,
       influencingMetrics: {
         riskScore,
-        unmetDemandRatio: unmetRatio,
+        unmetDemandRatio: exposeUnmet ? unmetRatio : null,
         eligibleSupplyAvailable: input.eligibleSupplyAvailable,
         demandGrowthRatePercent: growthRatePercent,
         nearExpiryUnitsCount: input.nearExpiryUnitsCount,

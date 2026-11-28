@@ -90,6 +90,8 @@ export function computeSupplyDemandMatches(input: MatchingInput): SupplyDemandMa
           ? 'MODERATE'
           : 'LOW';
 
+    const exposeUnmet = demand.unmetSignals >= input.minThreshold;
+
     matches.push({
       medicineId: c.medicineId,
       medicineName: c.medicineName,
@@ -99,7 +101,7 @@ export function computeSupplyDemandMatches(input: MatchingInput): SupplyDemandMa
       packSize: c.packSize,
       requestingArea: input.requestingArea,
       areaDemandSignals: demand.totalSignals,
-      areaUnmetSignals: demand.unmetSignals,
+      areaUnmetSignals: exposeUnmet ? demand.unmetSignals : null,
       supplyingPharmacyId: c.pharmacyId,
       supplyingPharmacyName: c.pharmacyName,
       supplyingArea: c.area,
@@ -113,12 +115,16 @@ export function computeSupplyDemandMatches(input: MatchingInput): SupplyDemandMa
       algorithmVersion: AI_ALGORITHM_VERSION,
       generatedAt: nowIso,
       explanation: {
-        summary: `Potential transfer match: ${c.pharmacyName} (${c.area}) holds eligible stock for ${c.medicineName} amid ${demand.unmetSignals} unmet area signals.`,
+        summary: exposeUnmet
+          ? `Potential transfer match: ${c.pharmacyName} (${c.area}) holds eligible stock for ${c.medicineName} amid ${demand.unmetSignals} unmet area signals.`
+          : `Potential transfer match: ${c.pharmacyName} (${c.area}) holds eligible stock for ${c.medicineName} amid elevated area demand (${demand.totalSignals} signals).`,
         whatWasIdentified: 'Potential peer-to-peer stock transfer opportunity (requires manual request & approval).',
-        whyIdentified: `${input.requestingArea} recorded ${demand.unmetSignals} unmet search signals out of ${demand.totalSignals} total signals, and ${c.pharmacyName} is verified with eligible non-expired, non-controlled stock.`,
+        whyIdentified: exposeUnmet
+          ? `${input.requestingArea} recorded ${demand.unmetSignals} unmet search signals out of ${demand.totalSignals} total signals, and ${c.pharmacyName} is verified with eligible non-expired, non-controlled stock.`
+          : `${input.requestingArea} recorded ${demand.totalSignals} total search signals with unmet demand signals present (exact unmet count below privacy threshold), and ${c.pharmacyName} is verified with eligible non-expired, non-controlled stock.`,
         influencingMetrics: {
           areaDemandSignals: demand.totalSignals,
-          areaUnmetSignals: demand.unmetSignals,
+          areaUnmetSignals: exposeUnmet ? demand.unmetSignals : null,
           distanceKm,
           sellingPrice: c.sellingPrice,
         },
@@ -139,8 +145,13 @@ export function computeSupplyDemandMatches(input: MatchingInput): SupplyDemandMa
   }
 
   matches.sort((a, b) => {
-    if (b.areaUnmetSignals !== a.areaUnmetSignals) {
-      return b.areaUnmetSignals - a.areaUnmetSignals;
+    const bUnmet = b.areaUnmetSignals ?? 0;
+    const aUnmet = a.areaUnmetSignals ?? 0;
+    if (bUnmet !== aUnmet) {
+      return bUnmet - aUnmet;
+    }
+    if (b.areaDemandSignals !== a.areaDemandSignals) {
+      return b.areaDemandSignals - a.areaDemandSignals;
     }
     if (a.distanceKm !== null && b.distanceKm !== null && a.distanceKm !== b.distanceKm) {
       return a.distanceKm - b.distanceKm;
