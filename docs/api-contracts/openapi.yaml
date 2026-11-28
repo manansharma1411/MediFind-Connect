@@ -638,46 +638,87 @@ paths:
           description: Tenant-isolated pharmacy demand insights
 
   # ============================================================================
-  # AI INTELLIGENCE (PLANNED)
+  # AI INTELLIGENCE (OPERATIONAL - DETERMINISTIC & EXPLAINABLE)
   # ============================================================================
-  /api/v1/intelligence/shortage-radar:
+  /api/v1/intelligence/shortages:
     get:
       tags:
-        - Intelligence (Planned)
-      summary: '[PLANNED] Retrieve explainable Shortage Radar risk signals'
+        - Demand Intelligence (Operational)
+      summary: '[OPERATIONAL] Retrieve multi-factor area shortage-risk radar (LOW, MODERATE, HIGH, INSUFFICIENT_DATA)'
       security:
         - BearerAuth: []
-      parameters:
-        - name: area
-          in: query
-          schema:
-            type: string
-        - name: severity
-          in: query
-          schema:
-            type: string
-            enum: [LOW, MODERATE, ELEVATED, CRITICAL]
       responses:
         '200':
-          description: Shortage alerts with evidence and confidence intervals
+          description: Paginated shortage-risk indicators with explainability & data freshness
 
-  /api/v1/intelligence/restock-recommendations:
+  /api/v1/intelligence/shortages/{medicineId}:
     get:
       tags:
-        - Intelligence (Planned)
-      summary: '[PLANNED] Retrieve Smart Restock reorder recommendations for pharmacy'
+        - Demand Intelligence (Operational)
+      summary: '[OPERATIONAL] Retrieve detailed shortage-risk indicators for a medicine in authorized scope'
       security:
         - BearerAuth: []
       parameters:
-        - name: pharmacyId
-          in: query
+        - name: medicineId
+          in: path
           required: true
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: Reorder recommendations with statistical rationale
+          description: Detailed shortage indicators and explanation
+
+  /api/v1/pharmacies/me/intelligence/restock:
+    get:
+      tags:
+        - Demand Intelligence (Operational)
+      summary: '[OPERATIONAL] Retrieve pharmacy-specific smart restock recommendations (reviewRequired: true)'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Paginated restock recommendations (DEMAND_SIGNAL_BASED or SALES_AND_DEMAND_BASED)
+
+  /api/v1/pharmacies/me/intelligence/restock/{medicineId}:
+    get:
+      tags:
+        - Demand Intelligence (Operational)
+      summary: '[OPERATIONAL] Retrieve detailed restock reasoning for a specific medicine in pharmacy inventory'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: medicineId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Medicine-specific restock reasoning and metrics
+
+  /api/v1/intelligence/forecast:
+    get:
+      tags:
+        - Demand Intelligence (Operational)
+      summary: '[OPERATIONAL] Retrieve walk-forward demand-signal forecast with MAE/RMSE/MAPE evaluation'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Demand forecast, uncertainty bounds, and Naive baseline comparison
+
+  /api/v1/intelligence/matches:
+    get:
+      tags:
+        - Demand Intelligence (Operational)
+      summary: '[OPERATIONAL] Retrieve potential local supply-demand transfer matches (never auto-creates transfers)'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Paginated eligible transfer opportunities for verified pharmacies
 
 components:
   securitySchemes:

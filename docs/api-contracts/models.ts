@@ -458,3 +458,132 @@ export interface UnmetDemandEntry {
   searchOutcome: DemandSearchOutcome;
   unmetSignals: number;
 }
+
+// Phase 9A Explainable AI Intelligence Contracts
+export type ShortageRiskCategory = 'LOW' | 'MODERATE' | 'HIGH' | 'INSUFFICIENT_DATA';
+export type RestockBasis = 'SALES_AND_DEMAND_BASED' | 'DEMAND_SIGNAL_BASED';
+
+export interface AiExplanation {
+  summary: string;
+  whatWasIdentified: string;
+  whyIdentified: string;
+  influencingMetrics: Record<string, number | string | boolean | null>;
+  reportingPeriod: {
+    fromDate: string;
+    toDate: string;
+  };
+  dataFreshness: {
+    latestDataDate: string | null;
+    isStale: boolean;
+    staleReason: string | null;
+  };
+  confidence: DataConfidenceLevel;
+  limitations: string[];
+  explanationSource: 'DETERMINISTIC' | 'LLM_VERIFIED_WITH_DETERMINISTIC_GUARD';
+}
+
+export interface ShortageRadarEntry {
+  medicineId: string;
+  medicineName: string;
+  scope: 'AREA';
+  area: string;
+  city: string;
+  riskCategory: ShortageRiskCategory;
+  riskScore: number | null;
+  estimatedRiskPeriodDays: number | null;
+  supportingIndicators: {
+    recentDemandSignals: number;
+    priorDemandSignals: number;
+    demandGrowthRatePercent: number | null;
+    unmetDemandSignals: number;
+    unmetDemandRatio: number;
+    eligibleSupplyAvailable: number;
+    reservedStockExcluded: number;
+    expiredBatchesExcluded: number;
+    nearExpiryUnitsCount: number;
+    participatingPharmaciesCount: number;
+  };
+  algorithmVersion: string;
+  generatedAt: string;
+  explanation: AiExplanation;
+}
+
+export interface SmartRestockEntry {
+  pharmacyId: string;
+  medicineId: string;
+  medicineName: string;
+  currentEligibleStock: number;
+  reservedStockExcluded: number;
+  expiredStockExcluded: number;
+  reorderThreshold: number;
+  suggestedRestockQuantity: number;
+  estimatedCoverageDays: number | null;
+  basis: RestockBasis;
+  supportingMetrics: {
+    observedSalesUnits30d: number | null;
+    areaDailyDemandRate: number;
+    nearExpiryUnits30d: number;
+    leadTimeDaysUsed: number | null;
+  };
+  reviewRequired: true;
+  algorithmVersion: string;
+  generatedAt: string;
+  explanation: AiExplanation;
+}
+
+export interface DemandForecastResponse {
+  medicineId: string;
+  medicineName: string | null;
+  area: string;
+  granularity: 'day' | 'week';
+  horizonPeriods: number;
+  status: 'READY' | 'INSUFFICIENT_DATA';
+  historicalBucketsCount: number;
+  baselineAverageSignals: number | null;
+  predictions: Array<{
+    periodStart: string;
+    predictedDemandSignals: number;
+    lowerBound: number;
+    upperBound: number;
+  }>;
+  evaluation: {
+    status: 'EVALUATED' | 'INSUFFICIENT_DATA';
+    modelName: string;
+    baselineName: string;
+    mae: number | null;
+    rmse: number | null;
+    mapePercent: number | null;
+    baselineMae: number | null;
+    baselineRmse: number | null;
+    beatsBaselineOnMae: boolean | null;
+    evaluatedPoints: number;
+  };
+  algorithmVersion: string;
+  generatedAt: string;
+  explanation: AiExplanation;
+}
+
+export interface SupplyDemandMatchEntry {
+  medicineId: string;
+  medicineName: string;
+  genericName: string;
+  dosageForm: string;
+  strength: string;
+  packSize: string;
+  requestingArea: string;
+  areaDemandSignals: number;
+  areaUnmetSignals: number;
+  supplyingPharmacyId: string;
+  supplyingPharmacyName: string;
+  supplyingArea: string;
+  supplyingCity: string;
+  distanceKm: number | null;
+  availabilityBand: 'ELIGIBLE_HIGH' | 'ELIGIBLE_LIMITED';
+  sellingPrice: number;
+  mrp: number;
+  collaborationWorkflowEndpoint: '/api/v1/collaboration/transfers';
+  autoCreated: false;
+  algorithmVersion: string;
+  generatedAt: string;
+  explanation: AiExplanation;
+}

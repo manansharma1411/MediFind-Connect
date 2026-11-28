@@ -4,17 +4,23 @@ import {
   createIntelligenceController,
   intelligenceController,
 } from '../controllers/intelligenceController.js';
+import {
+  aiIntelligenceController,
+  createAiIntelligenceController,
+} from '../controllers/aiIntelligenceController.js';
 import { guardPrivateInventory } from '../controllers/medicineController.js';
 import { createRequireAuth, requireAuth, TokenVerifier, verifySupabaseToken } from '../middleware/auth.js';
 import { createRateLimiter } from '../middleware/rateLimit.js';
 import { PharmacyService } from '../services/pharmacyService.js';
 import { IntelligenceService } from '../services/intelligenceService.js';
+import { AiIntelligenceService } from '../services/aiIntelligenceService.js';
 import { AppError } from '../types/index.js';
 import type { NextFunction, Request, Response } from 'express';
 
 export function createPharmacyRouter(options?: {
   service?: PharmacyService;
   intelligenceService?: IntelligenceService;
+  aiIntelligenceService?: AiIntelligenceService;
   tokenVerifier?: TokenVerifier;
 }): Router {
   const router = Router();
@@ -24,6 +30,9 @@ export function createPharmacyRouter(options?: {
   const intelController = options?.intelligenceService
     ? createIntelligenceController(options.intelligenceService)
     : intelligenceController;
+  const aiController = options?.aiIntelligenceService
+    ? createAiIntelligenceController(options.aiIntelligenceService)
+    : aiIntelligenceController;
   const auth = options?.tokenVerifier
     ? createRequireAuth(options.tokenVerifier)
     : requireAuth;
@@ -83,6 +92,8 @@ export function createPharmacyRouter(options?: {
   router.get('/me/dashboard', controller.getDashboard);
   router.get('/me/alerts', controller.getAlerts);
   router.get('/me/intelligence/demand', intelController.getMyPharmacyDemand);
+  router.get('/me/intelligence/restock', aiController.getMyRestockList);
+  router.get('/me/intelligence/restock/:medicineId', aiController.getMyRestockDetail);
 
   router.get('/me/inventory', controller.listInventory);
   router.post('/me/inventory', controller.addInventoryItem);
