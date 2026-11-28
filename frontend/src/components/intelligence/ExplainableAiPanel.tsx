@@ -9,7 +9,10 @@ import {
 } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/States";
-import { getConfidenceBadgeMeta } from "@/lib/aiIntelligenceUtils";
+import {
+  formatFreshnessDate,
+  getConfidenceBadgeMeta,
+} from "@/lib/aiIntelligenceUtils";
 import type { ExplainableMetadata } from "@/types/aiIntelligence";
 
 export function ExplainableAiPanel({
@@ -47,8 +50,8 @@ export function ExplainableAiPanel({
           <div>
             <CardTitle className="text-base">{title}</CardTitle>
             <CardDescription>
-              Period: {metadata.dataPeriod} · Updated:{" "}
-              {new Date(metadata.dataFreshnessAt).toLocaleString()}
+              Period: {metadata.dataPeriod || "—"} · Updated:{" "}
+              {formatFreshnessDate(metadata.dataFreshnessAt)}
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
