@@ -2,7 +2,18 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Building2, FileCheck2, MapPin, Navigation, Phone } from "lucide-react";
+import {
+  Building2,
+  Eye,
+  EyeOff,
+  FileCheck2,
+  Lock,
+  Mail,
+  MapPin,
+  Navigation,
+  Phone,
+  UserCheck,
+} from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
@@ -23,6 +34,7 @@ import {
   type RegisterPharmacyResponse,
 } from "@/services/pharmacyService";
 import {
+  getPasswordStrength,
   mapApiDetailsToRegistrationErrors,
   validatePharmacyRegistrationForm,
   type PharmacyRegistrationFormErrors,
@@ -36,6 +48,7 @@ export default function PharmacyRegisterPage() {
   );
 
   const [form, setForm] = useState({
+    ownerName: "",
     name: "",
     licenseNumber: "",
     phone: "",
@@ -50,7 +63,11 @@ export default function PharmacyRegisterPage() {
     lng: "",
     email: session?.email ?? "",
     password: "",
+    confirmPassword: "",
   });
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [errors, setErrors] = useState<PharmacyRegistrationFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -139,7 +156,7 @@ export default function PharmacyRegisterPage() {
         existingAccessToken: hasLiveAuthToken ? session?.accessToken : undefined,
       });
 
-      setForm((prev) => ({ ...prev, password: "" }));
+      setForm((prev) => ({ ...prev, password: "", confirmPassword: "" }));
       setRegistrationResult(res);
       setFeedback({
         variant: "success",
@@ -400,27 +417,142 @@ export default function PharmacyRegisterPage() {
             </div>
 
             {!hasLiveAuthToken && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-                <Input
-                  label="Manager Email (Supabase Account)"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  error={errors.email}
-                  placeholder="manager@pharmacy.example.com"
-                  autoComplete="email"
-                />
-                <Input
-                  label="Create Password"
-                  type="password"
-                  value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
-                  error={errors.password}
-                  placeholder="Minimum 8 characters"
-                  autoComplete="new-password"
-                />
+              <div className="space-y-4 pt-4 border-t border-slate-200">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Create Your Pharmacy Account
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    These credentials will be used to sign in to the Pharmacy
+                    Partner Portal.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Owner / Authorized Person Name"
+                    value={form.ownerName}
+                    onChange={(e) =>
+                      setForm({ ...form, ownerName: e.target.value })
+                    }
+                    error={errors.ownerName}
+                    placeholder="e.g. Dr. Rajesh Sharma"
+                    leftIcon={<UserCheck className="w-4 h-4" />}
+                    autoComplete="name"
+                  />
+                  <Input
+                    label="Email Address"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) =>
+                      setForm({ ...form, email: e.target.value })
+                    }
+                    error={errors.email}
+                    placeholder="manager@pharmacy.example.com"
+                    leftIcon={<Mail className="w-4 h-4" />}
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="register-password"
+                      className="block text-sm font-semibold text-slate-700"
+                    >
+                      Password
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                        <Lock className="w-4 h-4" />
+                      </span>
+                      <input
+                        id="register-password"
+                        type={showPassword ? "text" : "password"}
+                        value={form.password}
+                        onChange={(e) =>
+                          setForm({ ...form, password: e.target.value })
+                        }
+                        placeholder="Minimum 8 characters"
+                        autoComplete="new-password"
+                        className="w-full h-11 rounded-xl border border-slate-300 bg-white pl-10 pr-11 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        aria-label={
+                          showPassword ? "Hide password" : "Show password"
+                        }
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                    {form.password.length > 0 && (
+                      <p className="text-xs text-slate-500">
+                        Strength:{" "}
+                        <span className="font-semibold text-slate-700">
+                          {getPasswordStrength(form.password).label}
+                        </span>
+                      </p>
+                    )}
+                    {errors.password && (
+                      <p className="text-xs font-medium text-rose-600">
+                        {errors.password}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="register-confirm-password"
+                      className="block text-sm font-semibold text-slate-700"
+                    >
+                      Confirm Password
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                        <Lock className="w-4 h-4" />
+                      </span>
+                      <input
+                        id="register-confirm-password"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={form.confirmPassword}
+                        onChange={(e) =>
+                          setForm({ ...form, confirmPassword: e.target.value })
+                        }
+                        placeholder="Re-enter password"
+                        autoComplete="new-password"
+                        className="w-full h-11 rounded-xl border border-slate-300 bg-white pl-10 pr-11 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((prev) => !prev)}
+                        aria-label={
+                          showConfirmPassword
+                            ? "Hide confirm password"
+                            : "Show confirm password"
+                        }
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                    {errors.confirmPassword && (
+                      <p className="text-xs font-medium text-rose-600">
+                        {errors.confirmPassword}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 

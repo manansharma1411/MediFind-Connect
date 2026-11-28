@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  getPasswordStrength,
   mapApiDetailsToRegistrationErrors,
   validatePharmacyRegistrationForm,
 } from "../src/lib/pharmacyRegistrationUtils.ts";
@@ -9,14 +10,16 @@ import {
   registerPharmacy,
 } from "../src/services/pharmacyService.ts";
 
-test("validatePharmacyRegistrationForm validates licenseNumber, PIN code, coordinates, and credentials", () => {
+test("validatePharmacyRegistrationForm validates ownerName, licenseNumber, PIN code, coordinates, and password confirmation", () => {
   const invalid = validatePharmacyRegistrationForm(
     {
+      ownerName: "A",
       name: "A",
       licenseNumber: "1",
       phone: "123",
       email: "bad-email",
       password: "123",
+      confirmPassword: "456",
       address: "Main",
       area: "A",
       city: "B",
@@ -30,6 +33,7 @@ test("validatePharmacyRegistrationForm validates licenseNumber, PIN code, coordi
     { requireAccountCredentials: true }
   );
 
+  assert.ok(invalid.ownerName);
   assert.ok(invalid.name);
   assert.ok(invalid.licenseNumber);
   assert.ok(invalid.phone);
@@ -39,14 +43,17 @@ test("validatePharmacyRegistrationForm validates licenseNumber, PIN code, coordi
   assert.ok(invalid.lng);
   assert.ok(invalid.email);
   assert.ok(invalid.password);
+  assert.equal(invalid.confirmPassword, "Passwords do not match.");
 
   const valid = validatePharmacyRegistrationForm(
     {
+      ownerName: "Dr. Rajesh Sharma",
       name: "CarePlus Pharmacy",
       licenseNumber: "MP-BPL-20B-10294",
       phone: "+91 755 255 4321",
       email: "manager@careplus.example.com",
       password: "securePassword123",
+      confirmPassword: "securePassword123",
       address: "Plot 14, Zone-I, MP Nagar",
       area: "MP Nagar Zone-I",
       city: "Bhopal",
@@ -60,6 +67,8 @@ test("validatePharmacyRegistrationForm validates licenseNumber, PIN code, coordi
     { requireAccountCredentials: true }
   );
   assert.deepEqual(valid, {});
+  assert.equal(getPasswordStrength("short").label, "Too short");
+  assert.equal(getPasswordStrength("securePassword123").label, "Strong");
 });
 
 test("mapApiDetailsToRegistrationErrors maps flat and nested validation errors", () => {
