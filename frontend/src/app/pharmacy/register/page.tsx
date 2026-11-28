@@ -46,6 +46,8 @@ export default function PharmacyRegisterPage() {
   const hasLiveAuthToken = Boolean(
     session && !session.isPreviewSession && session.accessToken
   );
+  const isUnregisteredAuthUser =
+    hasLiveAuthToken && !session?.pharmacyId && session?.role !== "network_admin";
 
   const [form, setForm] = useState({
     ownerName: "",
@@ -125,7 +127,9 @@ export default function PharmacyRegisterPage() {
         ...form,
         is24x7: form.schedule === "24x7",
       },
-      { requireAccountCredentials: !hasLiveAuthToken }
+      {
+        requireAccountCredentials: !isUnregisteredAuthUser,
+      }
     );
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
@@ -141,7 +145,7 @@ export default function PharmacyRegisterPage() {
           name: form.name.trim(),
           phone: form.phone.trim(),
           email: form.email.trim(),
-          ...(hasLiveAuthToken ? {} : { password: form.password }),
+          ...(isUnregisteredAuthUser ? {} : { password: form.password }),
           licenseNumber: form.licenseNumber.trim(),
           is24x7: form.schedule === "24x7",
           tier: form.tier,
@@ -153,7 +157,9 @@ export default function PharmacyRegisterPage() {
           ...(latTrimmed !== "" ? { lat: Number(latTrimmed) } : {}),
           ...(lngTrimmed !== "" ? { lng: Number(lngTrimmed) } : {}),
         },
-        existingAccessToken: hasLiveAuthToken ? session?.accessToken : undefined,
+        existingAccessToken: isUnregisteredAuthUser
+          ? session?.accessToken
+          : undefined,
       });
 
       setForm((prev) => ({ ...prev, password: "", confirmPassword: "" }));
@@ -216,7 +222,7 @@ export default function PharmacyRegisterPage() {
         description="Submit your licensed pharmacy details via POST /api/v1/pharmacies/register to create your partner account."
       />
 
-      {hasLiveAuthToken && (
+      {isUnregisteredAuthUser && (
         <Toast
           variant="info"
           title="Authenticated Account Detected"
@@ -266,7 +272,7 @@ export default function PharmacyRegisterPage() {
           </CardContent>
           <CardFooter className="flex flex-wrap gap-3">
             <Link href="/pharmacy/login">
-              <Button type="button">Sign In to Partner Portal</Button>
+              <Button type="button">Go to Pharmacy Login</Button>
             </Link>
           </CardFooter>
         </Card>
@@ -416,11 +422,11 @@ export default function PharmacyRegisterPage() {
               </div>
             </div>
 
-            {!hasLiveAuthToken && (
+            {!isUnregisteredAuthUser && (
               <div className="space-y-4 pt-4 border-t border-slate-200">
                 <div>
                   <h3 className="text-base font-bold text-slate-900">
-                    Create Your Pharmacy Account
+                    Create Your Login Account
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
                     These credentials will be used to sign in to the Pharmacy
@@ -441,7 +447,7 @@ export default function PharmacyRegisterPage() {
                     autoComplete="name"
                   />
                   <Input
-                    label="Email Address"
+                    label="Login Email Address"
                     type="email"
                     value={form.email}
                     onChange={(e) =>
@@ -460,7 +466,7 @@ export default function PharmacyRegisterPage() {
                       htmlFor="register-password"
                       className="block text-sm font-semibold text-slate-700"
                     >
-                      Password
+                      Create Password
                     </label>
                     <div className="relative">
                       <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
