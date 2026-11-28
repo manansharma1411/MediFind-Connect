@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/States";
-import { DemoNoticeBanner } from "@/components/shared/DemoNoticeBanner";
+import { Toast } from "@/components/ui/Toast";
 
 export default function AdminMedicinesPage() {
   return (
@@ -24,11 +24,12 @@ export default function AdminMedicinesPage() {
         ]}
         title="Master Medicine Catalog"
         description="Curate canonical medicine records, generic mappings, and brand aliases across the platform."
-        badge={<Badge variant="info">Awaiting Backend API</Badge>}
+        badge={<Badge variant="error" dot>API Unavailable</Badge>}
       />
 
-      <DemoNoticeBanner
-        title="Admin Medicine Catalog API Pending"
+      <Toast
+        variant="warning"
+        title="API Unavailable"
         description="Administrative catalog endpoints (GET/POST/PATCH /api/v1/admin/medicines) are awaiting Person B implementation."
       />
 

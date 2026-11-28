@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { DemoNoticeBanner } from "@/components/shared/DemoNoticeBanner";
+import { Toast } from "@/components/ui/Toast";
 
 export default function AdminSettingsPage() {
   return (
@@ -24,11 +24,12 @@ export default function AdminSettingsPage() {
         ]}
         title="Platform Admin Settings"
         description="Security posture, verification policy, and environment configuration status."
-        badge={<Badge variant="brand">Super Admin</Badge>}
+        badge={<Badge variant="error" dot>API Unavailable</Badge>}
       />
 
-      <DemoNoticeBanner
-        title="Admin Settings API Pending"
+      <Toast
+        variant="warning"
+        title="API Unavailable"
         description="Configurable platform settings (GET/PATCH /api/v1/admin/settings) are awaiting Person B implementation."
       />
 

@@ -109,6 +109,27 @@ export function mapAdminPharmacyRecord(
   };
 }
 
+export function getAdminDataStatusBadge(params: {
+  isLoading: boolean;
+  error: string | null;
+  source: "live" | "unavailable";
+  itemCount: number;
+}): {
+  label: "Loading" | "API Unavailable" | "No Records" | "Live Data";
+  variant: "info" | "error" | "neutral" | "success";
+} {
+  if (params.isLoading) {
+    return { label: "Loading", variant: "info" };
+  }
+  if (params.error || params.source === "unavailable") {
+    return { label: "API Unavailable", variant: "error" };
+  }
+  if (params.itemCount === 0) {
+    return { label: "No Records", variant: "neutral" };
+  }
+  return { label: "Live Data", variant: "success" };
+}
+
 export function getAuthorizedAdminEmail(): string {
   return (
     process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() ||
