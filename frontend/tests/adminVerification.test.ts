@@ -5,6 +5,7 @@ import {
   getVerificationStatusMeta,
   isAuthorizedAdminEmail,
   isAuthorizedAdminSession,
+  mapAdminPharmacyRecord,
   paginateVerificationRecords,
   validateRejectionReason,
 } from "../src/lib/adminVerificationUtils.ts";
@@ -272,5 +273,104 @@ test("isAuthorizedAdminEmail restricts to configured admin email and loginAdmin 
     else process.env.NEXT_PUBLIC_SUPABASE_URL = prevSupaUrl;
     if (prevSupaKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = prevSupaKey;
+  }
+});
+
+test("admin verification mappers normalize missing history, null location, and { pharmacy, history } details", async () => {
+  const mappedMissingHistory = mapAdminPharmacyRecord({
+    id: "pharm-100",
+    name: "CarePlus Pharmacy",
+    phone: "+91 755 255 1111",
+    email: null,
+    licenseNumber: "MP-BPL-20B-10294",
+    verificationStatus: "PENDING",
+    location: null,
+    createdAt: "2026-11-28T08:00:00Z",
+  });
+
+  assert.deepEqual(mappedMissingHistory.history, []);
+  assert.equal(mappedMissingHistory.history.length, 0);
+  assert.equal(mappedMissingHistory.registeredAddress, "Address unavailable");
+  assert.equal(mappedMissingHistory.contactPhone, "+91 755 255 1111");
+
+  const originalFetch = globalThis.fetch;
+  const prevApi = process.env.NEXT_PUBLIC_API_BASE_URL;
+  process.env.NEXT_PUBLIC_API_BASE_URL = "https://backend.example.test";
+
+  try {
+    globalThis.fetch = async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/api/v1/admin/pharmacies/pharm-100/verification")) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              pharmacy: {
+                id: "pharm-100",
+                name: "CarePlus Pharmacy",
+                phone: "+91 755 255 1111",
+                email: "owner@careplus.example.com",
+                licenseNumber: "MP-BPL-20B-10294",
+                verificationStatus: "PENDING",
+                location: {
+                  address: "Plot 14, MP Nagar",
+                  area: "MP Nagar",
+                  city: "Bhopal",
+                  state: "Madhya Pradesh",
+                  pincode: "462011",
+                },
+                createdAt: "2026-11-28T08:00:00Z",
+              },
+              history: [
+                {
+                  id: 1,
+                  previousStatus: null,
+                  newStatus: "PENDING",
+                  reason: null,
+                  adminUserId: "admin-1",
+                  createdAt: "2026-11-28T08:00:00Z",
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            items: [
+              {
+                id: "pharm-100",
+                name: "CarePlus Pharmacy",
+                phone: "+91 755 255 1111",
+                verificationStatus: "PENDING",
+                createdAt: "2026-11-28T08:00:00Z",
+              },
+            ],
+            pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    };
+
+    const listRes = await listAdminPharmacies(ADMIN_SESSION);
+    assert.equal(listRes.source, "live");
+    assert.equal(listRes.data?.items.length, 1);
+    assert.deepEqual(listRes.data?.items[0]?.history, []);
+
+    const detailRes = await getAdminPharmacyVerificationDetails(
+      ADMIN_SESSION,
+      "pharm-100"
+    );
+    assert.equal(detailRes.data?.registeredAddress, "Plot 14, MP Nagar");
+    assert.equal(detailRes.data?.history.length, 1);
+    assert.equal(detailRes.data?.history[0]?.newStatus, "PENDING");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (prevApi === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    else process.env.NEXT_PUBLIC_API_BASE_URL = prevApi;
   }
 });

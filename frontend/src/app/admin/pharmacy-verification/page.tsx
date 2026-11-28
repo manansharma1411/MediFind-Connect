@@ -95,20 +95,23 @@ function AdminPharmacyVerificationContent() {
     async (signal?: AbortSignal) => {
       if (!session) return;
       try {
-        const res = await listAdminPharmacies(session, {}, signal);
+        const res = await listAdminPharmacies(
+          session,
+          { status: "ALL" },
+          signal
+        );
         if (signal?.aborted) return;
         setError(null);
         setSource(res.source);
         setNotice(res.notice);
         if (res.data) {
-          setSummary(res.data.summary);
-          setRecords(res.data.items);
+          const safeItems = Array.isArray(res.data.items) ? res.data.items : [];
+          setSummary(res.data.summary ?? null);
+          setRecords(safeItems);
           setSelected((prev) =>
             prev
-              ? res.data!.items.find((i) => i.id === prev.id) ??
-                res.data!.items[0] ??
-                null
-              : res.data!.items[0] ?? null
+              ? safeItems.find((i) => i.id === prev.id) ?? safeItems[0] ?? null
+              : safeItems[0] ?? null
           );
         } else {
           setSummary(null);
@@ -169,15 +172,13 @@ function AdminPharmacyVerificationContent() {
     if (!approveTarget || isMutating) return;
     setIsMutating(true);
     try {
-      const updated = await submitPharmacyVerificationDecision(
-        session,
-        approveTarget.id,
-        { decision: "VERIFIED" }
-      );
+      await submitPharmacyVerificationDecision(session, approveTarget.id, {
+        decision: "VERIFIED",
+      });
       setToast({
         variant: "success",
         title: "Pharmacy Verified",
-        description: `${updated.name} has been verified.`,
+        description: `${approveTarget.name} has been verified.`,
       });
       setApproveTarget(null);
       await loadDashboard();
@@ -205,15 +206,14 @@ function AdminPharmacyVerificationContent() {
 
     setIsMutating(true);
     try {
-      const updated = await submitPharmacyVerificationDecision(
-        session,
-        rejectTarget.id,
-        { decision: "REJECTED", reason: rejectionReason.trim() }
-      );
+      await submitPharmacyVerificationDecision(session, rejectTarget.id, {
+        decision: "REJECTED",
+        reason: rejectionReason.trim(),
+      });
       setToast({
         variant: "success",
         title: "Pharmacy Rejected",
-        description: `${updated.name} has been marked as rejected.`,
+        description: `${rejectTarget.name} has been marked as rejected.`,
       });
       setRejectTarget(null);
       setRejectionReason("");
@@ -557,14 +557,14 @@ function AdminPharmacyVerificationContent() {
                   </div>
                 </div>
 
-                {selected.history.length > 0 && (
+                {(selected.history ?? []).length > 0 && (
                   <div className="space-y-2 pt-2 border-t border-slate-100">
                     <p className="text-xs font-semibold uppercase text-slate-500 flex items-center gap-1.5">
                       <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
                       Verification History
                     </p>
                     <ul className="space-y-2">
-                      {selected.history.map((h) => (
+                      {(selected.history ?? []).map((h) => (
                         <li
                           key={h.id}
                           className="p-3 rounded-xl border border-slate-200 text-xs flex flex-wrap items-center justify-between gap-2"
