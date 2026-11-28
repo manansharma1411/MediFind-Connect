@@ -59,6 +59,11 @@ function PharmacyPortalShell({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [alertCount, setAlertCount] = useState<number>(0);
 
+  const isPendingVerification =
+    Boolean(session && !session.isPreviewSession) &&
+    (session?.verificationStatus === "PENDING" ||
+      session?.isLicensedVerified === false);
+
   useEffect(() => {
     if (!session) return;
     const controller = new AbortController();
@@ -329,7 +334,31 @@ function PharmacyPortalShell({ children }: { children: React.ReactNode }) {
           </aside>
 
           {/* Main Content */}
-          <div className="flex-1 min-w-0 space-y-6">{children}</div>
+          <div className="flex-1 min-w-0 space-y-6">
+            {isPendingVerification && (
+              <div
+                role="status"
+                className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex flex-wrap items-center justify-between gap-2"
+              >
+                <div>
+                  <span className="font-semibold">
+                    Pending Verification ({session?.verificationStatus ?? "PENDING"}):
+                  </span>{" "}
+                  Your pharmacy license is under review. You can view your
+                  profile and verification status, while restricted
+                  collaboration and verification-dependent operations remain
+                  blocked until verified.
+                </div>
+                <Link
+                  href="/pharmacy/profile"
+                  className="text-xs font-semibold text-amber-900 underline underline-offset-2 shrink-0"
+                >
+                  View Verification Status
+                </Link>
+              </div>
+            )}
+            {children}
+          </div>
         </div>
       </PageContainer>
     </div>

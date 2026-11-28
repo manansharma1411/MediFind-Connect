@@ -49,6 +49,30 @@ function mapSupabaseError(
     };
   }
 
+  if (
+    rawCode.includes("invalid_credentials") ||
+    rawCode.includes("invalid_grant") ||
+    rawMsg.toLowerCase().includes("invalid login credentials")
+  ) {
+    return {
+      status: 401,
+      code: "INVALID_CREDENTIALS",
+      message: "Invalid email or password. Please check your credentials and try again.",
+    };
+  }
+
+  if (
+    rawCode.includes("email_not_confirmed") ||
+    rawMsg.toLowerCase().includes("email not confirmed")
+  ) {
+    return {
+      status: 403,
+      code: "EMAIL_NOT_CONFIRMED",
+      message:
+        "Email confirmation is required before signing in. Please verify your email address and try again.",
+    };
+  }
+
   return {
     status,
     code: rawCode ? rawCode.toUpperCase() : `AUTH_${status}`,

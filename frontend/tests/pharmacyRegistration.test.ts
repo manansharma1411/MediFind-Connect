@@ -266,7 +266,7 @@ test("registerPharmacy handles duplicate email, duplicate license (409 CONFLICT)
   }
 });
 
-test("loginPharmacy authenticates with Supabase Auth and fetches /api/v1/pharmacies/me", async () => {
+test("loginPharmacy authenticates with Supabase Auth, sends Bearer token to /api/v1/pharmacies/me, and preserves PENDING verification", async () => {
   const originalFetch = globalThis.fetch;
   const prevApi = process.env.NEXT_PUBLIC_API_BASE_URL;
   const prevSupaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -276,7 +276,9 @@ test("loginPharmacy authenticates with Supabase Auth and fetches /api/v1/pharmac
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://auth.example.test";
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key-test";
 
-  globalThis.fetch = async (input: string | URL | Request) => {
+  let meAuthHeader: string | null = null;
+
+  globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.toString();
     if (url.includes("/auth/v1/token")) {
       return new Response(
@@ -289,10 +291,16 @@ test("loginPharmacy authenticates with Supabase Auth and fetches /api/v1/pharmac
     }
 
     if (url === "https://backend.example.test/api/v1/pharmacies/me") {
+      meAuthHeader = new Headers(init?.headers).get("Authorization");
       return new Response(
         JSON.stringify({
           success: true,
-          data: { id: "pharm-uuid-99", name: "CarePlus Pharmacy" },
+          data: {
+            id: "pharm-uuid-99",
+            name: "CarePlus Pharmacy",
+            verificationStatus: "PENDING",
+            isLicensedVerified: false,
+          },
         }),
         { status: 200, headers: { "content-type": "application/json" } }
       );
@@ -306,10 +314,126 @@ test("loginPharmacy authenticates with Supabase Auth and fetches /api/v1/pharmac
       "owner@store.example.com",
       "Password123!"
     );
+    assert.equal(meAuthHeader, "Bearer login-jwt-456");
     assert.equal(session.accessToken, "login-jwt-456");
     assert.equal(session.pharmacyId, "pharm-uuid-99");
     assert.equal(session.pharmacyName, "CarePlus Pharmacy");
+    assert.equal(session.verificationStatus, "PENDING");
+    assert.equal(session.isLicensedVerified, false);
     assert.equal(session.isPreviewSession, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (prevApi === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    else process.env.NEXT_PUBLIC_API_BASE_URL = prevApi;
+    if (prevSupaUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = prevSupaUrl;
+    if (prevSupaKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = prevSupaKey;
+  }
+});
+
+test("loginPharmacy handles invalid credentials, email confirmation required, no pharmacy profile (403), and expired token (401)", async () => {
+  const originalFetch = globalThis.fetch;
+  const prevApi = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const prevSupaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const prevSupaKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  process.env.NEXT_PUBLIC_API_BASE_URL = "https://backend.example.test";
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://auth.example.test";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key-test";
+
+  try {
+    // 1. Invalid credentials
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          error: "invalid_grant",
+          error_description: "Invalid login credentials",
+        }),
+        { status: 400, headers: { "content-type": "application/json" } }
+      );
+
+    await assert.rejects(
+      () => loginPharmacy("wrong@store.example.com", "badpass"),
+      (err: { status?: number; code?: string }) =>
+        err.status === 401 && err.code === "INVALID_CREDENTIALS"
+    );
+
+    // 2. Email confirmation required
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          error_code: "email_not_confirmed",
+          msg: "Email not confirmed",
+        }),
+        { status: 400, headers: { "content-type": "application/json" } }
+      );
+
+    await assert.rejects(
+      () => loginPharmacy("pending@store.example.com", "Password123!"),
+      (err: { status?: number; code?: string }) =>
+        err.status === 403 && err.code === "EMAIL_NOT_CONFIRMED"
+    );
+
+    // 3. No pharmacy profile (403 from /api/v1/pharmacies/me -> empty pharmacyId for /pharmacy/register redirect)
+    globalThis.fetch = async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/auth/v1/token")) {
+        return new Response(
+          JSON.stringify({
+            access_token: "valid-jwt-no-pharm",
+            user: { id: "user-uuid-3", email: "nopharm@store.example.com" },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "No authorized pharmacy profile found for this user.",
+          },
+        }),
+        { status: 403, headers: { "content-type": "application/json" } }
+      );
+    };
+
+    const unregSession = await loginPharmacy(
+      "nopharm@store.example.com",
+      "Password123!"
+    );
+    assert.equal(unregSession.pharmacyId, "");
+    assert.equal(unregSession.accessToken, "valid-jwt-no-pharm");
+
+    // 4. Expired / invalid token (401 from /api/v1/pharmacies/me)
+    globalThis.fetch = async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/auth/v1/token")) {
+        return new Response(
+          JSON.stringify({
+            access_token: "secret-expired-jwt-token",
+            user: { id: "user-uuid-4", email: "expired@store.example.com" },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: { code: "UNAUTHORIZED", message: "Token expired" },
+        }),
+        { status: 401, headers: { "content-type": "application/json" } }
+      );
+    };
+
+    await assert.rejects(
+      () => loginPharmacy("expired@store.example.com", "Password123!"),
+      (err: { status?: number; code?: string; message?: string }) =>
+        err.status === 401 &&
+        err.code === "UNAUTHORIZED" &&
+        !err.message?.includes("secret-expired-jwt-token")
+    );
   } finally {
     globalThis.fetch = originalFetch;
     if (prevApi === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;

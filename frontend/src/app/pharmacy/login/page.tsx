@@ -44,6 +44,7 @@ export default function PharmacyLoginPage() {
     setIsSubmitting(true);
     try {
       const session = await loginPharmacy(email.trim(), password);
+      setPassword("");
       setSession(session);
       if (!session.pharmacyId) {
         router.push("/pharmacy/register");
@@ -55,6 +56,26 @@ export default function PharmacyLoginPage() {
       if (eObj.code === "SUPABASE_NOT_CONFIGURED") {
         setApiError(
           "Supabase Auth environment variables are not configured. You can inspect the portal using UI Preview Mode below."
+        );
+      } else if (eObj.code === "EMAIL_NOT_CONFIRMED") {
+        setApiError(
+          "Email confirmation is required before signing in. Please verify your email address and try again."
+        );
+      } else if (eObj.code === "INVALID_CREDENTIALS") {
+        setApiError(
+          "Invalid email or password. Please check your credentials and try again."
+        );
+      } else if (eObj.status === 401 || eObj.code === "UNAUTHORIZED") {
+        setApiError(
+          "Your session is unauthorized or expired. Please sign in again."
+        );
+      } else if (
+        eObj.code === "NETWORK_ERROR" ||
+        eObj.code === "API_NOT_CONFIGURED" ||
+        eObj.status === 503
+      ) {
+        setApiError(
+          "Unable to reach the MediFind Connect backend right now. Please try again shortly."
         );
       } else {
         setApiError(
@@ -161,8 +182,8 @@ export default function PharmacyLoginPage() {
                 Enter UI Preview Mode (Sample Data)
               </Button>
               <p className="text-[11px] text-slate-500 text-center">
-                Preview mode uses isolated read-only sample data while backend
-                auth is planned.
+                Preview mode uses isolated read-only sample data for UI
+                inspection.
               </p>
             </div>
           </CardContent>
