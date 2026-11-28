@@ -51,6 +51,13 @@ export class CollaborationService {
         'No authorized pharmacy profile found for this user.'
       );
     }
+    if (!pharmacy.isLicensedVerified) {
+      throw new AppError(
+        403,
+        'PHARMACY_NOT_VERIFIED',
+        'Your pharmacy must complete license verification before accessing peer-to-peer collaboration.'
+      );
+    }
     return pharmacy;
   }
 

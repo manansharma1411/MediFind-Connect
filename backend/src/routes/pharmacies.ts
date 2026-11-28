@@ -5,9 +5,12 @@ import {
   intelligenceController,
 } from '../controllers/intelligenceController.js';
 import { guardPrivateInventory } from '../controllers/medicineController.js';
-import { createRequireAuth, requireAuth, TokenVerifier } from '../middleware/auth.js';
+import { createRequireAuth, requireAuth, TokenVerifier, verifySupabaseToken } from '../middleware/auth.js';
+import { createRateLimiter } from '../middleware/rateLimit.js';
 import { PharmacyService } from '../services/pharmacyService.js';
 import { IntelligenceService } from '../services/intelligenceService.js';
+import { AppError } from '../types/index.js';
+import type { NextFunction, Request, Response } from 'express';
 
 export function createPharmacyRouter(options?: {
   service?: PharmacyService;
@@ -29,7 +32,45 @@ export function createPharmacyRouter(options?: {
   // and must NOT be intercepted by Bearer-token authentication middleware.
   // Auth is applied strictly to registration (POST /) and protected /me/* routes.
 
-  // Registration (authenticated user only)
+  const registrationLimiter = createRateLimiter({
+    windowMs: 60_000,
+    maxRequests: 10,
+    keyPrefix: 'pharmacy-register',
+  });
+
+  const optionalStrictAuth = async (
+    req: Request,
+    _res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return next();
+    if (!authHeader.startsWith('Bearer ')) {
+      return next(
+        new AppError(401, 'UNAUTHORIZED', 'Missing or malformed Authorization Bearer token.')
+      );
+    }
+    const token = authHeader.slice('Bearer '.length).trim();
+    if (!token) {
+      return next(new AppError(401, 'UNAUTHORIZED', 'Empty Authorization Bearer token.'));
+    }
+    try {
+      const verifier = options?.tokenVerifier ?? verifySupabaseToken;
+      const user = await verifier(token);
+      if (!user) {
+        return next(new AppError(401, 'UNAUTHORIZED', 'Invalid or expired authentication token.'));
+      }
+      req.user = user;
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  // Canonical self-service & authenticated pharmacy registration
+  router.post('/register', registrationLimiter, optionalStrictAuth, controller.selfRegisterPharmacy);
+
+  // Backward-compatible authenticated registration alias
   router.post('/', auth, controller.registerPharmacy);
 
   // Authorized Pharmacy Profile, Operating Hours, Dashboard, Alerts, & Inventory

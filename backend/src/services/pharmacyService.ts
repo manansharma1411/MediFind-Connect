@@ -12,6 +12,50 @@ import {
 } from '../repositories/pharmacyRepository.js';
 import { AppError } from '../types/index.js';
 import { getIndianTimeParts } from './medicineService.js';
+import {
+  IAuthAdminService,
+  supabaseAuthAdminService,
+} from './authAdminService.js';
+import { logger } from '../utils/logger.js';
+
+export interface PharmacyRegistrationResultDto {
+  pharmacyId: string;
+  status: 'PENDING_VERIFICATION' | 'VERIFIED';
+  verificationStatus: string;
+  isLicensedVerified: boolean;
+  name: string;
+  area: string;
+  city: string;
+  pincode: string;
+  is24x7: boolean;
+}
+
+export interface SelfRegisterPharmacyInput {
+  name: string;
+  phone: string;
+  email: string;
+  password?: string;
+  licenseNumber: string;
+  is24x7: boolean;
+  tier: 'standard' | 'hub' | 'hospital_attached';
+  address?: string;
+  area?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  lat?: number;
+  lng?: number;
+  location?: {
+    address: string;
+    area: string;
+    city: string;
+    state: string;
+    pincode: string;
+    lat: number;
+    lng: number;
+  };
+  operatingHours?: OperatingHourEntry[];
+}
 
 export interface PharmacyAlert {
   id: string;
@@ -53,7 +97,12 @@ function daysBetweenIst(fromDateStr: string, toDateStr: string): number {
 }
 
 export class PharmacyService {
-  constructor(private readonly repository: IPharmacyRepository) {}
+  private readonly registrationIdempotencyCache = new Map<string, PharmacyRegistrationResultDto>();
+
+  constructor(
+    private readonly repository: IPharmacyRepository,
+    private readonly authAdmin: IAuthAdminService = supabaseAuthAdminService
+  ) {}
 
   async resolveAuthorizedPharmacy(userId: string): Promise<PharmacyProfileRecord> {
     const pharmacy = await this.repository.findPharmacyByUserId(userId);
@@ -72,6 +121,103 @@ export class PharmacyService {
     input: RegisterPharmacyInput
   ): Promise<PharmacyProfileRecord> {
     return this.repository.createPharmacyForUser(userId, input);
+  }
+
+  /**
+   * Canonical pharmacy registration workflow:
+   * - Supports self-service signup (creates Supabase Auth owner + Postgres pharmacy atomically with compensation rollback)
+   * - Supports authenticated owner registration (associates with authenticated user only)
+   * - Enforces PENDING verification status until license review completes
+   */
+  async selfRegisterPharmacy(
+    input: SelfRegisterPharmacyInput,
+    options?: {
+      authenticatedUserId?: string;
+      idempotencyKey?: string;
+    }
+  ): Promise<PharmacyRegistrationResultDto> {
+    const idempKey = options?.idempotencyKey
+      ? `${options.authenticatedUserId ?? input.email.toLowerCase()}:${options.idempotencyKey}`
+      : null;
+
+    if (idempKey && this.registrationIdempotencyCache.has(idempKey)) {
+      return this.registrationIdempotencyCache.get(idempKey)!;
+    }
+
+    const location = input.location ?? {
+      address: input.address!,
+      area: input.area!,
+      city: input.city!,
+      state: input.state!,
+      pincode: input.pincode!,
+      lat: input.lat ?? 0,
+      lng: input.lng ?? 0,
+    };
+
+    let ownerUserId = options?.authenticatedUserId;
+    let createdAuthUserId: string | null = null;
+
+    if (!ownerUserId) {
+      if (!input.password || input.password.length < 8) {
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          'A manager password of at least 8 characters is required.'
+        );
+      }
+      const created = await this.authAdmin.createOwnerAccount({
+        email: input.email.toLowerCase(),
+        password: input.password,
+      });
+      ownerUserId = created.userId;
+      createdAuthUserId = created.userId;
+    }
+
+    try {
+      const pharmacy = await this.repository.createPharmacyForUser(ownerUserId, {
+        name: input.name,
+        phone: input.phone,
+        email: input.email.toLowerCase(),
+        licenseNumber: input.licenseNumber.trim().toUpperCase(),
+        is24x7: input.is24x7,
+        tier: input.tier,
+        location,
+      });
+
+      if (input.operatingHours && input.operatingHours.length > 0) {
+        await this.repository.upsertOperatingHours(pharmacy.id, input.operatingHours);
+      }
+
+      const result: PharmacyRegistrationResultDto = {
+        pharmacyId: pharmacy.id,
+        status: pharmacy.isLicensedVerified ? 'VERIFIED' : 'PENDING_VERIFICATION',
+        verificationStatus: pharmacy.verificationStatus ?? 'PENDING',
+        isLicensedVerified: Boolean(pharmacy.isLicensedVerified),
+        name: pharmacy.name,
+        area: pharmacy.location?.area ?? location.area,
+        city: pharmacy.location?.city ?? location.city,
+        pincode: pharmacy.location?.pincode ?? location.pincode,
+        is24x7: pharmacy.is24x7,
+      };
+
+      if (idempKey) {
+        this.registrationIdempotencyCache.set(idempKey, result);
+      }
+      return result;
+    } catch (err) {
+      // Saga compensation: if Auth user was created in this request, delete it so no orphan remains
+      if (createdAuthUserId) {
+        try {
+          await this.authAdmin.deleteOwnerAccount(createdAuthUserId);
+        } catch (rollbackErr) {
+          logger.error(
+            'Failed to roll back Supabase Auth user after pharmacy creation failure',
+            rollbackErr instanceof Error ? rollbackErr : new Error(String(rollbackErr))
+          );
+        }
+      }
+      throw err;
+    }
   }
 
   async getMyProfile(userId: string): Promise<PharmacyProfileRecord> {
