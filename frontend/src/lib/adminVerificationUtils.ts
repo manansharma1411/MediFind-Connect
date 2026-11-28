@@ -45,6 +45,8 @@ export interface BackendAdminPharmacyRecord {
   pincode?: string | null;
   createdAt?: string | null;
   registeredAt?: string | null;
+  isActive?: boolean;
+  tier?: string | null;
   history?: BackendAdminHistoryEvent[] | null;
 }
 
@@ -105,6 +107,8 @@ export function mapAdminPharmacyRecord(
     licenseReviewNotes: raw.rejectionReason ?? raw.licenseReviewNotes ?? null,
     registeredAt: raw.createdAt ?? raw.registeredAt ?? "",
     verificationStatus: normalizeVerificationStatus(raw.verificationStatus),
+    isActive: typeof raw.isActive === "boolean" ? raw.isActive : undefined,
+    tier: raw.tier ?? undefined,
     history: historyList.map(mapAdminVerificationHistoryEntry),
   };
 }

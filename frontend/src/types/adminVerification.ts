@@ -37,6 +37,8 @@ export interface AdminPharmacyVerificationRecord {
   licenseReviewNotes: string | null;
   registeredAt: string;
   verificationStatus: AdminVerificationStatus;
+  isActive?: boolean;
+  tier?: string;
   history: AdminVerificationHistoryEntry[];
 }
 

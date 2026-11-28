@@ -151,6 +151,54 @@ export interface VerifyPharmacyDecisionResult {
   rejectionReason: string | null;
 }
 
+export interface AdminAllPharmaciesQuery {
+  search?: string;
+  status?: AdminVerificationStatus | "ALL";
+  isActive?: "all" | "true" | "false";
+  sortBy?: "createdAt" | "name" | "verificationStatus";
+  sortOrder?: "asc" | "desc";
+  page?: number;
+  limit?: number;
+}
+
+export async function listAllAdminPharmacies(
+  session: PharmacySession | null,
+  params: AdminAllPharmaciesQuery = {},
+  signal?: AbortSignal
+): Promise<{
+  items: AdminPharmacyVerificationRecord[];
+  pagination: PaginationMeta;
+}> {
+  const validSession = assertAdminSession(session);
+
+  const qs = new URLSearchParams();
+  if (params.search?.trim()) qs.set("search", params.search.trim());
+  if (params.status) qs.set("status", params.status);
+  if (params.isActive) qs.set("isActive", params.isActive);
+  if (params.sortBy) qs.set("sortBy", params.sortBy);
+  if (params.sortOrder) qs.set("sortOrder", params.sortOrder);
+  qs.set("page", String(params.page ?? 1));
+  qs.set("limit", String(params.limit ?? 20));
+
+  const res = await apiClient.get<ApiResponse<BackendAdminListPayload>>(
+    `/api/v1/admin/pharmacies?${qs.toString()}`,
+    { headers: authHeaders(validSession), signal }
+  );
+
+  const rawItems = Array.isArray(res.data?.items) ? res.data.items : [];
+  const rawPag = res.data?.pagination;
+
+  return {
+    items: rawItems.map((item) => mapAdminPharmacyRecord(item)),
+    pagination: {
+      page: rawPag?.page ?? params.page ?? 1,
+      pageSize: rawPag?.limit ?? params.limit ?? 20,
+      total: rawPag?.total ?? rawItems.length,
+      totalPages: rawPag?.totalPages ?? (rawItems.length > 0 ? 1 : 0),
+    },
+  };
+}
+
 export async function listAdminPharmacies(
   session: PharmacySession | null,
   params: {

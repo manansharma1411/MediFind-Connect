@@ -13,6 +13,7 @@ import {
 import {
   getAdminPharmacyVerificationDetails,
   listAdminPharmacies,
+  listAllAdminPharmacies,
   loginAdmin,
   submitPharmacyVerificationDecision,
 } from "../src/services/adminVerificationService.ts";
@@ -300,6 +301,117 @@ test("submitPharmacyVerificationDecision sends PATCH { action: REJECT, reason } 
         }),
       (err: { status?: number; code?: string }) =>
         err.status === 404 && err.code === "RESOURCE_NOT_FOUND"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (prevApi === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    else process.env.NEXT_PUBLIC_API_BASE_URL = prevApi;
+  }
+});
+
+test("listAllAdminPharmacies calls GET /api/v1/admin/pharmacies with Bearer token, pagination, search, and handles errors", async () => {
+  await assert.rejects(
+    () => listAllAdminPharmacies(null),
+    (err: { status?: number }) => err.status === 401
+  );
+  await assert.rejects(
+    () => listAllAdminPharmacies(OWNER_SESSION),
+    (err: { status?: number }) => err.status === 403
+  );
+
+  const originalFetch = globalThis.fetch;
+  const prevApi = process.env.NEXT_PUBLIC_API_BASE_URL;
+  process.env.NEXT_PUBLIC_API_BASE_URL = "https://backend.example.test";
+
+  try {
+    let requestedUrl = "";
+    let sentAuth: string | null = null;
+
+    globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      requestedUrl = typeof input === "string" ? input : input.toString();
+      sentAuth = new Headers(init?.headers).get("Authorization");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            items: [
+              {
+                id: "pharm-1",
+                name: "CarePlus Pharmacy",
+                phone: "+91 755 255 1111",
+                email: "careplus@example.com",
+                licenseNumber: "MP-BPL-20B-10294",
+                verificationStatus: "VERIFIED",
+                isActive: true,
+                location: {
+                  address: "Plot 14",
+                  area: "MP Nagar",
+                  city: "Bhopal",
+                  state: "MP",
+                  pincode: "462011",
+                },
+                createdAt: "2026-11-28T08:00:00Z",
+              },
+            ],
+            pagination: { page: 2, limit: 10, total: 11, totalPages: 2 },
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    };
+
+    const res = await listAllAdminPharmacies(ADMIN_SESSION, {
+      search: "CarePlus",
+      status: "VERIFIED",
+      isActive: "true",
+      sortBy: "name",
+      sortOrder: "asc",
+      page: 2,
+      limit: 10,
+    });
+
+    assert.equal(sentAuth, "Bearer admin-jwt-123");
+    assert.ok(requestedUrl.includes("/api/v1/admin/pharmacies?"));
+    assert.ok(requestedUrl.includes("search=CarePlus"));
+    assert.ok(requestedUrl.includes("status=VERIFIED"));
+    assert.ok(requestedUrl.includes("page=2"));
+    assert.ok(requestedUrl.includes("limit=10"));
+    assert.equal(res.items.length, 1);
+    assert.equal(res.items[0]?.isActive, true);
+    assert.equal(res.pagination.total, 11);
+    assert.equal(res.pagination.totalPages, 2);
+
+    // Empty result
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            items: [],
+            pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+
+    const emptyRes = await listAllAdminPharmacies(ADMIN_SESSION);
+    assert.deepEqual(emptyRes.items, []);
+    assert.equal(emptyRes.pagination.total, 0);
+
+    // 500 error propagates cleanly
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          success: false,
+          error: { code: "DATABASE_ERROR", message: "Query failed" },
+        }),
+        { status: 500, headers: { "content-type": "application/json" } }
+      );
+
+    await assert.rejects(
+      () => listAllAdminPharmacies(ADMIN_SESSION),
+      (err: { status?: number; code?: string }) =>
+        err.status === 500 && err.code === "DATABASE_ERROR"
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -610,6 +722,117 @@ test("submitPharmacyVerificationDecision sends PATCH { action: REJECT, reason } 
         }),
       (err: { status?: number; code?: string }) =>
         err.status === 404 && err.code === "RESOURCE_NOT_FOUND"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (prevApi === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    else process.env.NEXT_PUBLIC_API_BASE_URL = prevApi;
+  }
+});
+
+test("listAllAdminPharmacies calls GET /api/v1/admin/pharmacies with Bearer token, pagination, search, and handles errors", async () => {
+  await assert.rejects(
+    () => listAllAdminPharmacies(null),
+    (err: { status?: number }) => err.status === 401
+  );
+  await assert.rejects(
+    () => listAllAdminPharmacies(OWNER_SESSION),
+    (err: { status?: number }) => err.status === 403
+  );
+
+  const originalFetch = globalThis.fetch;
+  const prevApi = process.env.NEXT_PUBLIC_API_BASE_URL;
+  process.env.NEXT_PUBLIC_API_BASE_URL = "https://backend.example.test";
+
+  try {
+    let requestedUrl = "";
+    let sentAuth: string | null = null;
+
+    globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      requestedUrl = typeof input === "string" ? input : input.toString();
+      sentAuth = new Headers(init?.headers).get("Authorization");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            items: [
+              {
+                id: "pharm-1",
+                name: "CarePlus Pharmacy",
+                phone: "+91 755 255 1111",
+                email: "careplus@example.com",
+                licenseNumber: "MP-BPL-20B-10294",
+                verificationStatus: "VERIFIED",
+                isActive: true,
+                location: {
+                  address: "Plot 14",
+                  area: "MP Nagar",
+                  city: "Bhopal",
+                  state: "MP",
+                  pincode: "462011",
+                },
+                createdAt: "2026-11-28T08:00:00Z",
+              },
+            ],
+            pagination: { page: 2, limit: 10, total: 11, totalPages: 2 },
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    };
+
+    const res = await listAllAdminPharmacies(ADMIN_SESSION, {
+      search: "CarePlus",
+      status: "VERIFIED",
+      isActive: "true",
+      sortBy: "name",
+      sortOrder: "asc",
+      page: 2,
+      limit: 10,
+    });
+
+    assert.equal(sentAuth, "Bearer admin-jwt-123");
+    assert.ok(requestedUrl.includes("/api/v1/admin/pharmacies?"));
+    assert.ok(requestedUrl.includes("search=CarePlus"));
+    assert.ok(requestedUrl.includes("status=VERIFIED"));
+    assert.ok(requestedUrl.includes("page=2"));
+    assert.ok(requestedUrl.includes("limit=10"));
+    assert.equal(res.items.length, 1);
+    assert.equal(res.items[0]?.isActive, true);
+    assert.equal(res.pagination.total, 11);
+    assert.equal(res.pagination.totalPages, 2);
+
+    // Empty result
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            items: [],
+            pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+
+    const emptyRes = await listAllAdminPharmacies(ADMIN_SESSION);
+    assert.deepEqual(emptyRes.items, []);
+    assert.equal(emptyRes.pagination.total, 0);
+
+    // 500 error propagates cleanly
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          success: false,
+          error: { code: "DATABASE_ERROR", message: "Query failed" },
+        }),
+        { status: 500, headers: { "content-type": "application/json" } }
+      );
+
+    await assert.rejects(
+      () => listAllAdminPharmacies(ADMIN_SESSION),
+      (err: { status?: number; code?: string }) =>
+        err.status === 500 && err.code === "DATABASE_ERROR"
     );
   } finally {
     globalThis.fetch = originalFetch;
