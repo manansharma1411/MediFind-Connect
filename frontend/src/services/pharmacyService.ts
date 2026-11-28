@@ -62,6 +62,8 @@ export async function loginPharmacy(
       ApiResponse<{
         id: string;
         name: string;
+        verificationStatus?: "PENDING" | "VERIFIED" | "REJECTED" | "SUSPENDED";
+        isLicensedVerified?: boolean;
       }>
     >("/api/v1/pharmacies/me", {
       headers: { Authorization: `Bearer ${auth.accessToken}` },
@@ -76,6 +78,8 @@ export async function loginPharmacy(
       role: "pharmacy_admin",
       pharmacyId: profileRes.data.id,
       pharmacyName: profileRes.data.name,
+      verificationStatus: profileRes.data.verificationStatus ?? "PENDING",
+      isLicensedVerified: Boolean(profileRes.data.isLicensedVerified),
       isPreviewSession: false,
     };
   } catch (err) {
@@ -92,6 +96,14 @@ export async function loginPharmacy(
         pharmacyName: "Unregistered Pharmacy",
         isPreviewSession: false,
       };
+    }
+    if (apiErr.status === 401) {
+      const authErr: ApiError = {
+        status: 401,
+        code: "UNAUTHORIZED",
+        message: "Your session is invalid or expired. Please sign in again.",
+      };
+      throw authErr;
     }
     throw err;
   }

@@ -24,6 +24,8 @@ export interface PharmacySession {
   role: PharmacyUserRole;
   pharmacyId: string;
   pharmacyName: string;
+  verificationStatus?: "PENDING" | "VERIFIED" | "REJECTED" | "SUSPENDED";
+  isLicensedVerified?: boolean;
   isPreviewSession?: boolean;
 }
 
