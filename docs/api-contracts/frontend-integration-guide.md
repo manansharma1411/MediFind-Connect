@@ -109,11 +109,19 @@ List endpoints accept `?page=1&limit=20` (max `limit=100`) and return:
   * `GET / POST /api/v1/collaboration/transfers` — List participant transfers or create a new transfer request.
   * `GET /api/v1/collaboration/transfers/:transferId` — View transfer details and immutable audit history.
   * `POST /api/v1/collaboration/transfers/:transferId/{approve|reject|dispatch|receive|cancel}` — Atomic state transitions (supports `Idempotency-Key` header).
+* **Local Demand Intelligence (Requires `Authorization: Bearer <Supabase_JWT>` + Authorized Pharmacy):**
+  * `GET /api/v1/intelligence/demand/overview` — Area-scoped aggregated demand, unmet signals, eligible supply indicators, and period-over-period change.
+  * `GET /api/v1/intelligence/demand/trends` — Day/week aggregated search trends (`medicineId`, `area`, `fromDate`, `toDate`, `granularity`, `page`, `limit`).
+  * `GET /api/v1/intelligence/demand/areas` — Coarse area-wise aggregated demand and supply indicators.
+  * `GET /api/v1/intelligence/demand/unmet` — Aggregated unmet demand signals (`NO_MATCH`, `NO_ELIGIBLE_NEARBY_STOCK`, `PARTIAL_AVAILABILITY`).
+  * `GET /api/v1/intelligence/demand/medicines/:medicineId` — Per-medicine local demand level, trend, supply indicators, and data confidence.
+  * `GET /api/v1/pharmacies/me/intelligence/demand` — Demand intelligence strictly scoped to the authenticated pharmacy's permitted area.
+  * *Privacy & Thresholds:* Minimum group threshold (`DEMAND_MIN_THRESHOLD`, default `5`) suppresses small groups and prevents differencing; no raw events, IPs, or exact timestamps are exposed; 90-day aggregate retention and 15-minute SHA-256 deduplication window.
 
 ### Planned for Upcoming Phases (NOT YET IMPLEMENTED)
 Do **not** call these in production UI without fallback/mocking until Person B marks them operational:
 * **Public Pharmacy Directory:** `GET /api/v1/pharmacies`, `GET /api/v1/pharmacies/:id`
-* **Intelligence:** `GET /api/v1/intelligence/{demand-summary|shortage-radar|restock-recommendations}`
+* **AI Shortage Radar & Smart Restock:** `GET /api/v1/intelligence/{shortage-radar|restock-recommendations}`
 
 ---
 
@@ -128,7 +136,7 @@ Do **not** call these in production UI without fallback/mocking until Person B m
 | **Pharmacy Dashboard** | `/pharmacy/dashboard` | `GET /api/v1/pharmacies/:id/dashboard` (low stock counts, pending transfers, revenue) | `Bearer` (`pharmacy_staff` of `:id`) | Planned |
 | **Inventory Management** | `/pharmacy/inventory` | `GET /api/v1/pharmacies/:id/inventory`, `PATCH /api/v1/pharmacies/:id/inventory` | `Bearer` (`pharmacy_staff` of `:id`) | Planned |
 | **Pharmacy Collaboration** | `/collaboration` | `GET /api/v1/collaboration/stock`, `GET/POST /api/v1/collaboration/transfers`, `POST /api/v1/collaboration/transfers/:id/{approve\|reject\|dispatch\|receive\|cancel}` | `Bearer` (authorized pharmacy participant) | **Available Now** |
-| **Intelligence Overview** | `/intelligence` | `GET /api/v1/intelligence/demand-summary` | `Bearer` (`pharmacy_staff` / `network_admin`) | Planned |
+| **Intelligence Overview** | `/intelligence` | `GET /api/v1/intelligence/demand/overview`, `/trends`, `/areas`, `/unmet`, `GET /api/v1/pharmacies/me/intelligence/demand` | `Bearer` (authorized pharmacy) | **Available Now** |
 | **Shortage Radar** | `/intelligence/shortage-radar` | `GET /api/v1/intelligence/shortage-radar?area=...` | `Bearer` (`pharmacy_staff` / `network_admin`) | Planned |
 | **Smart Restock** | `/intelligence/smart-restock` | `GET /api/v1/intelligence/restock-recommendations?pharmacyId=...` | `Bearer` (`pharmacy_staff` of `pharmacyId`) | Planned |
 

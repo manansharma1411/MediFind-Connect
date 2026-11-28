@@ -12,6 +12,10 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_ANON_KEY: z.string().min(1).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  DEMAND_MIN_THRESHOLD: z.coerce.number().int().min(3).max(100).default(5),
+  DEMAND_RETENTION_DAYS: z.coerce.number().int().min(7).max(365).default(90),
+  DEMAND_DEDUP_TTL_SECONDS: z.coerce.number().int().min(60).max(86400).default(900),
+  DEMAND_SIGNAL_SALT: z.string().min(8).default('medifind-demand-salt-v1'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

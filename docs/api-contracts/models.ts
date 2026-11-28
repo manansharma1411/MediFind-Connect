@@ -377,3 +377,84 @@ export interface RestockRecommendation {
   isAcknowledged: boolean;
   generatedAt: string;
 }
+
+// Phase 8A Local Demand Intelligence Contracts
+export type DemandSearchOutcome =
+  | 'MATCH_FOUND'
+  | 'NO_MATCH'
+  | 'NO_ELIGIBLE_NEARBY_STOCK'
+  | 'PARTIAL_AVAILABILITY';
+
+export type DemandSearchSource =
+  | 'MEDICINE_SEARCH'
+  | 'AVAILABILITY_CHECK'
+  | 'PRICE_COMPARISON';
+
+export type DataConfidenceLevel = 'INSUFFICIENT' | 'LOW' | 'MODERATE' | 'HIGH';
+
+export interface EligibleSupplyIndicator {
+  eligibleTotalAvailable: number;
+  participatingPharmaciesCount: number;
+  supplyLevel: 'NONE' | 'LOW' | 'ADEQUATE';
+}
+
+export interface DemandOverviewResponse {
+  area: string;
+  city: string;
+  reportingPeriod: {
+    fromDate: string;
+    toDate: string;
+    granularity: 'day' | 'week';
+  };
+  searchVolume: number;
+  unmetDemandSignals: number;
+  periodOverPeriodChangePercent: number | null;
+  popularMedicines: Array<{
+    medicineId: string;
+    medicineName: string;
+    searchSignals: number;
+    unmetSignals: number;
+  }>;
+  currentEligibleSupply: EligibleSupplyIndicator;
+  demandToSupplyIndicator: number | null;
+  privacy: {
+    minThreshold: number;
+    suppressedGroups: number;
+    aggregationGranularity: 'DAY_OR_WEEK';
+  };
+  dataFreshness: {
+    latestBucketDate: string | null;
+    lastCleanupAt: string | null;
+    retentionDays: number;
+  };
+  isSufficientData: boolean;
+  confidence: DataConfidenceLevel;
+  disclaimer: string;
+}
+
+export interface DemandTrendEntry {
+  periodStart: string;
+  granularity: 'day' | 'week';
+  medicineId: string | null;
+  medicineName: string | null;
+  area: string;
+  searchSignals: number;
+  unmetSignals: number;
+}
+
+export interface AreaDemandEntry {
+  area: string;
+  city: string;
+  pincodePrefix: string;
+  searchSignals: number;
+  unmetSignals: number;
+  currentEligibleSupply: EligibleSupplyIndicator;
+}
+
+export interface UnmetDemandEntry {
+  medicineId: string | null;
+  medicineName: string | null;
+  area: string;
+  searchOutcome: DemandSearchOutcome;
+  unmetSignals: number;
+}
