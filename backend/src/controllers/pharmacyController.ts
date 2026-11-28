@@ -6,6 +6,7 @@ import {
   inventoryQuerySchema,
   itemIdParamSchema,
   registerPharmacySchema,
+  selfRegisterPharmacySchema,
   updateInventoryItemSchema,
   updateOperatingHoursSchema,
   updatePharmacyProfileSchema,
@@ -33,6 +34,30 @@ export function createPharmacyController(service: PharmacyService) {
           success: true,
           message: 'Pharmacy profile registered successfully.',
           data: pharmacy,
+          timestamp: new Date().toISOString(),
+        };
+        res.status(201).json(response);
+      } catch (err) {
+        next(err);
+      }
+    },
+
+    selfRegisterPharmacy: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      try {
+        const input = selfRegisterPharmacySchema.parse(req.body);
+        const idempotencyKey =
+          typeof req.headers['idempotency-key'] === 'string'
+            ? req.headers['idempotency-key'].trim()
+            : undefined;
+        const result = await service.selfRegisterPharmacy(input, {
+          authenticatedUserId: req.user?.id,
+          idempotencyKey,
+        });
+
+        const response: ApiResponse<typeof result> = {
+          success: true,
+          message: 'Pharmacy registration submitted successfully. Verification is pending.',
+          data: result,
           timestamp: new Date().toISOString(),
         };
         res.status(201).json(response);

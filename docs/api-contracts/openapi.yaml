@@ -208,11 +208,28 @@ paths:
   # ============================================================================
   # PHARMACY MANAGEMENT (OPERATIONAL - AUTHENTICATED /me/*)
   # ============================================================================
+  /api/v1/pharmacies/register:
+    post:
+      tags:
+        - Pharmacy Management (Operational)
+      summary: '[OPERATIONAL] Canonical self-service or authenticated pharmacy registration (atomic with Auth rollback)'
+      responses:
+        '201':
+          description: Pharmacy registered with PENDING_VERIFICATION status
+        '400':
+          description: Validation error (invalid PIN, license, password, or address)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Duplicate email, user pharmacy, or drug license number
+        '429':
+          description: Rate limit exceeded
+
   /api/v1/pharmacies:
     post:
       tags:
         - Pharmacy Management (Operational)
-      summary: '[OPERATIONAL] Register pharmacy profile for authenticated user'
+      summary: '[OPERATIONAL] Backward-compatible authenticated pharmacy registration alias'
       security:
         - BearerAuth: []
       responses:

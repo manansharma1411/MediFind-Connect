@@ -94,8 +94,10 @@ List endpoints accept `?page=1&limit=20` (max `limit=100`) and return:
 * `GET /api/v1/medicines/:id` — Public medicine details and brands.
 * `GET /api/v1/medicines/:id/availability` — Geo-sorted availability (`lat`, `lng`, `radiusKm`) excluding expired stock and private fields.
 * `GET /api/v1/medicines/:id/prices` — INR price comparisons across compatible formulations (`sortBy=price_asc|distance_asc`).
-* **Pharmacy Management (Requires `Authorization: Bearer <Supabase_JWT>`):**
-  * `POST /api/v1/pharmacies` — Register pharmacy profile for authenticated user (409 on duplicate).
+* **Pharmacy Management:**
+  * `POST /api/v1/pharmacies/register` — Canonical self-service (email + password) or authenticated pharmacy registration with drug license validation, `PENDING_VERIFICATION` status, `Idempotency-Key` retry safety, and automatic Auth rollback on partial failure.
+  * `POST /api/v1/pharmacies` — Backward-compatible authenticated registration alias (requires `Authorization: Bearer <Supabase_JWT>`).
+  * *(Protected `/me/*` routes below require `Authorization: Bearer <Supabase_JWT>`):*
   * `GET / PUT /api/v1/pharmacies/me` — Retrieve / update authorized pharmacy profile.
   * `GET / PUT /api/v1/pharmacies/me/operating-hours` — Retrieve / update IST operating hours.
   * `GET /api/v1/pharmacies/me/dashboard` — Real inventory KPIs and recent movements.
