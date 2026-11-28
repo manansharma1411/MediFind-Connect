@@ -2,9 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, FileCheck2, ShieldCheck, XCircle } from "lucide-react";
-import { PageContainer } from "@/components/layout/PageContainer";
+import { SuperAdminLayout } from "@/components/layout/SuperAdminLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { AdminAuthGuard } from "@/components/admin/AdminAuthGuard";
 import {
   Card,
   CardContent,
@@ -54,9 +53,9 @@ const PAGE_SIZE = 10;
 
 export default function AdminPharmacyVerificationPage() {
   return (
-    <AdminAuthGuard>
+    <SuperAdminLayout>
       <AdminPharmacyVerificationContent />
-    </AdminAuthGuard>
+    </SuperAdminLayout>
   );
 }
 
@@ -237,11 +236,10 @@ function AdminPharmacyVerificationContent() {
   };
 
   return (
-    <PageContainer size="xl" className="py-8 sm:py-10 space-y-6">
+    <div className="space-y-6">
       <PageHeader
         breadcrumbs={[
-          { label: "Home", href: "/" },
-          { label: "Admin" },
+          { label: "Super Admin", href: "/admin" },
           { label: "Pharmacy Verification" },
         ]}
         title="Pharmacy Verification Dashboard"
@@ -677,6 +675,6 @@ function AdminPharmacyVerificationContent() {
           )}
         </div>
       </Modal>
-    </PageContainer>
+    </div>
   );
 }

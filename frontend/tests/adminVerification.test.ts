@@ -69,9 +69,16 @@ const SAMPLE_RECORDS: AdminPharmacyVerificationRecord[] = [
   },
 ];
 
-test("isAuthorizedAdminSession allows only non-preview network_admin sessions", () => {
+test("isAuthorizedAdminSession allows only non-preview network_admin sessions and ignores email strings", () => {
   assert.equal(isAuthorizedAdminSession(null), false);
   assert.equal(isAuthorizedAdminSession(OWNER_SESSION), false);
+  assert.equal(
+    isAuthorizedAdminSession({
+      ...OWNER_SESSION,
+      email: "super.admin@medifind.example.com",
+    }),
+    false
+  );
   assert.equal(
     isAuthorizedAdminSession({ ...ADMIN_SESSION, isPreviewSession: true }),
     false
