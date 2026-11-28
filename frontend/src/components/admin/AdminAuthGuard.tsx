@@ -8,9 +8,18 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { usePharmacyAuth } from "@/context/PharmacyAuthContext";
 import { isAuthorizedAdminSession } from "@/lib/adminVerificationUtils";
+import { LoadingSkeleton } from "@/components/ui/States";
 
 export function AdminAuthGuard({ children }: { children: React.ReactNode }) {
-  const { session } = usePharmacyAuth();
+  const { session, isHydrated } = usePharmacyAuth();
+
+  if (!isHydrated) {
+    return (
+      <PageContainer size="md" className="py-14 sm:py-20">
+        <LoadingSkeleton rows={4} />
+      </PageContainer>
+    );
+  }
 
   if (!session) {
     return (

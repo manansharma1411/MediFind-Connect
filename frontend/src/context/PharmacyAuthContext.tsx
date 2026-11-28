@@ -1,12 +1,19 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import type { PharmacySession } from "@/types/pharmacy";
 
 const STORAGE_KEY = "mf_pharmacy_session_v1";
 
 interface PharmacyAuthContextValue {
   session: PharmacySession | null;
+  isHydrated: boolean;
   setSession: (next: PharmacySession | null) => void;
   enterPreviewSession: () => void;
   logout: () => void;
@@ -16,25 +23,30 @@ const PharmacyAuthContext = createContext<PharmacyAuthContextValue | null>(
   null
 );
 
-function readInitialSession(): PharmacySession | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as PharmacySession;
-  } catch {
-    return null;
-  }
-}
-
 export function PharmacyAuthProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [session, setSessionState] = useState<PharmacySession | null>(
-    readInitialSession
-  );
+  // Start with null on both SSR and initial client render to prevent hydration mismatches.
+  const [session, setSessionState] = useState<PharmacySession | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    const rafId = window.requestAnimationFrame(() => {
+      try {
+        const raw = window.sessionStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          setSessionState(JSON.parse(raw) as PharmacySession);
+        }
+      } catch {
+        // Ignore malformed storage entries
+      } finally {
+        setIsHydrated(true);
+      }
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, []);
 
   const setSession = useCallback((next: PharmacySession | null) => {
     setSessionState(next);
@@ -70,7 +82,7 @@ export function PharmacyAuthProvider({
 
   return (
     <PharmacyAuthContext.Provider
-      value={{ session, setSession, enterPreviewSession, logout }}
+      value={{ session, isHydrated, setSession, enterPreviewSession, logout }}
     >
       {children}
     </PharmacyAuthContext.Provider>
